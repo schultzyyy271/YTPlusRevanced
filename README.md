@@ -13,14 +13,6 @@ A flexible enhancer for YouTube on iOS, featuring over a hundred customizable op
 
 ---
 
-## Screenshots
-
-<!-- Add screenshots here -->
-
-[More screenshots](#)
-
----
-
 ## Main Features
 
 * Download videos, audio (including audio track selection), thumbnails, posts, and profile pictures
@@ -100,7 +92,7 @@ Review by [@qbap](https://github.com/qbap) on ONE Jailbreak: https://onejailbrea
 |---|---|
 | **Latest confirmed** | 21.16.2 |
 | **Date tested** | Apr 23, 2026 |
-| **YouTube Plus version** | 5.2.1 |
+| **YouTube Plus Revanced version** | 1.0 |
 
 ---
 
