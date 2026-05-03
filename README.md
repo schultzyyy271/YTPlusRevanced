@@ -39,11 +39,11 @@ All tweaks are compiled inline into a single `YouTubePlusRevanced.dylib`, except
 | **YouQuality** | [PoomSmart](https://github.com/PoomSmart) | Video quality picker directly in the video overlay |
 | **YTVideoOverlay** | [PoomSmart](https://github.com/PoomSmart) | Player overlay button registry (used by YouPiP/YouQuality) |
 | **DontEatMyContent** | [PoomSmart](https://github.com/PoomSmart) | Prevents notch/Dynamic Island from covering video content |
-| **Gonerino** | Community | Block channels and videos by keyword |
-| **VolumeBoostYT** | Community | Volume boost beyond 100% |
-| **YTweaks** | Community | Dark mode, force fullscreen, hide AI summaries, virtual bezel |
+| **Gonerino** | [castdrian](https://github.com/castdrian) | Block channels and videos by keyword |
+| **VolumeBoostYT** | [VasirakCalgux](https://github.com/VasirakCalgux) | Volume boost beyond 100% |
+| **YTweaks** | [PoomSmart](https://github.com/PoomSmart) | Dark mode, force fullscreen, hide AI summaries, virtual bezel |
 | **YouGroupSettings** | [PoomSmart](https://github.com/PoomSmart) | Settings grouping |
-| **iSponsorBlock** | Community | Auto-skip sponsored segments (separate dylib) |
+| **iSponsorBlock** | [Galactic-Dev](https://github.com/Galactic-Dev) | Auto-skip sponsored segments (separate dylib) |
 
 ---
 
