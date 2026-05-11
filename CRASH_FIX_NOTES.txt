@@ -1,0 +1,133 @@
+YouTubePlusRevanced — full crash fix and structural audit (May 2026)
+====================================================================
+
+Symptom on the device build (YouTube-2026-05-02-151100_000.ips):
+    EXC_CRASH / SIGABRT during dylib initialiser execution
+    +[YTSettingsSectionItemManager registerTweak:metadata:]: unrecognized selector
+    Faulting frame: YouTubePlusRevanced.dylib + 0x26FBC
+
+Root cause and the deeper bug behind it
+---------------------------------------
+The crash itself is YouPiP's %ctor sending +registerTweak:metadata: to
+YTSettingsSectionItemManager. That class method is supposed to be added at
+load time by the registry living in Tweaks/YTVideoOverlay/Tweak.x.
+
+But Tweaks/YTVideoOverlay/Tweak.x was MISSING from the Makefile's _FILES list,
+so none of YTVideoOverlay's runtime code was compiled into the dylib. With no
++registerTweak:metadata: ever installed, the call from YouPiP's ctor falls
+through to _CF_forwarding_prep_0 -> doesNotRecognizeSelector: -> abort.
+
+Two more Makefile bugs were found during the audit:
+
+1. _FILES had `# YTABConfig...` comment lines spliced *into* the `\`-continued
+   list. GNU Make terminates a continued variable at the first comment line
+   in the continuation, even when the comment also ends with `\`. This
+   silently truncated the variable, dropping YouGroupSettings/Tweak.x and
+   YouQuality/Tweak.x from the build.
+
+2. _EMBED_BUNDLES had the same comment-in-continuation hazard. It silently
+   dropped the YTweaks and YouGroupSettings bundles.
+
+A previous "fix" attempt added a no-op +registerTweak:metadata: stub to
+Settings.x without %new. Without %new, Logos compiled it as MSHookMessageEx
+(swizzle an existing method), which silently failed because there was no
+method to swap. That was a band-aid for a band-aid; both have been removed.
+
+What this archive changes
+-------------------------
+1. Makefile
+   - _FILES: removed the `# Tweaks/YTABConfig/...` comment lines that broke
+     the variable continuation. YouGroupSettings/Tweak.x and YouQuality/Tweak.x
+     are now actually included.
+   - _FILES: ADDED Tweaks/YTVideoOverlay/Tweak.x, placed BEFORE YouPiP and
+     YouQuality so its %ctor (which class_addMethods +registerTweak:metadata:
+     and -buttonImage:) runs first.
+   - _EMBED_BUNDLES: removed the same kind of stray comment line; also added
+     Tweaks/YTVideoOverlay/layout/.../YTVideoOverlay.bundle.
+
+2. Settings.x
+   - Removed the bogus +registerTweak:metadata: stub. The real registry in
+     YTVideoOverlay/Tweak.x handles it via %new + class_addMethod. Keeping
+     the stub would race the real registry's class_addMethod and could win,
+     silently breaking metadata storage.
+
+3. Tweaks/YTVideoOverlay/Tweak.x
+   - Removed the `#import <YouTubeHeader/...>` lines (10 of them). The build
+     environment doesn't ship the YouTubeHeader pkg at /opt/theos/include,
+     so those imports caused a "file not found" compile error. The Compat
+     header (next item) replaces them.
+
+4. Tweaks/YTVideoOverlay/YTVideoOverlay_Compat.h
+   - Extended with forward declarations for everything Tweak.x uses: YTColor
+     (with blackPureAlpha0/white1), YTTypeStyle/YTDefaultTypeStyle (with the
+     ytSansFontOfSize:weight: / fontOfSize:weight: methods), YTQTMButton (with
+     customTitleColor/verticalContentPadding/minHitTargetSize/yt_setWidth: and
+     iconButton/buttonWithImage:... factory methods), YTFrostedGlassView (with
+     cornerRadius/initWithBlurEffectStyle:alpha:/maybeApplyToView:), the
+     YTSettings* family (GroupData, AppSettingsPresentationData, SectionItem,
+     PickerViewController, ViewController), YTSettingsCell, YTIIcon, the
+     YTMainAppVideoPlayerOverlayView class (note: not the *Controller, the
+     bare view returned by [vc videoPlayerOverlayView]), and a YT_TV
+     #define so the section icon path compiles.
+   - All declarations use `#ifndef <Class>_DEFINED` guards matching the
+     pattern used elsewhere in the project, so they coexist with YouPiP_Compat
+     and YouQuality's includes without duplicate-interface errors.
+
+5. Tweaks/YouPiP/YouPiP_Compat.h
+   - Wrapped the @interface YTColor declaration in `#ifndef YTColor_DEFINED`
+     guard so it doesn't collide with the YTVideoOverlay Compat (which YouPiP
+     transitively imports via Init.x).
+
+What this archive does NOT change (intentionally)
+-------------------------------------------------
+- No source-code-logic edits in any tweak. All Logos %hook bodies are as you
+  had them.
+- No Theos toolchain settings, no LDFLAGS changes, no SDK target shifts.
+- iSponsorBlock subproject is untouched (it builds its own dylib as before).
+- YTABConfig stays disabled (was already disabled, and the user confirmed it
+  was excluded intentionally because it needed to be its own dylib).
+
+Build (on macOS with Theos installed)
+-------------------------------------
+    THEOS_PACKAGE_SCHEME=rootless make clean package DEBUG=0 FINALPACKAGE=1
+
+The `make clean` is important. The pre-existing `.theos/obj` on disk has the
+broken dylib; without `clean`, an incremental build can keep stale objects.
+
+Verification (run before installing the rebuilt dylib)
+------------------------------------------------------
+    python3 VERIFY_FIX.py \
+        .theos/_/var/jb/Library/MobileSubstrate/DynamicLibraries/YouTubePlusRevanced.dylib
+or, if Theos staged the binary differently for your scheme, point at whichever
+copy of YouTubePlusRevanced.dylib is freshest under `.theos/`.
+
+Expected output on a successful build:
+    Found ~80 unique selectors added via class_addMethod.
+
+    PASS: 'registerTweak:metadata:' is added via class_addMethod
+    PASS: 'buttonImage:' is added via class_addMethod
+    PASS: 'switchWithTitle:key:' present (sanity)
+    PASS: 'didPressPiP:event:' present (sanity)
+    PASS: 'updateYTPlusTweaksSectionWithSettingsVC:' present (sanity)
+    exit code 0
+
+If the two required selectors are not added, the build is missing
+YTVideoOverlay/Tweak.x — re-check the _FILES list in the Makefile.
+
+The verifier needs either `lief` (pip install lief) or `otool` from Xcode CLT
+to resolve the _class_addMethod import. On macOS with Xcode tools installed,
+otool is automatic; on Linux, install lief.
+
+Things this audit did not validate
+----------------------------------
+- Whether every individual %hook signature still matches YouTube 21.16.2's
+  current class layouts. A hook on a renamed/deleted method silently no-ops
+  (same failure mode as the original bug, but for a single feature instead
+  of the whole dylib). If a specific feature toggle does nothing after
+  install, that's likely the cause and needs a per-class check.
+- Cooperative multi-file hooks of the same setting/UI methods (e.g. several
+  tweaks all hook -[YTSettingsSectionItemManager updateSectionForCategory:]).
+  Logos chains these correctly as long as each calls %orig; that wasn't
+  manually confirmed for every chain.
+- Whether the code paths inside each tweak do what the user wants. This audit
+  only covered crash/structural integrity.
