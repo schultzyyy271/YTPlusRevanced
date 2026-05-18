@@ -1,0 +1,11 @@
+Package: dev.adrian.gonerino
+Name: Gonerino
+Version: 1.3.2
+Architecture: iphoneos-arm
+Description: Remove videos uploaded by specific channels
+Maintainer: Adrian Castro
+Author: Adrian Castro
+Section: Tweaks
+Depends: ellekit
+Depiction: https://repo.adriancastro.dev/depictions/web/?p=dev.adrian.gonerino
+SileoDepiction: https://repo.adriancastro.dev/depictions/native/dev.adrian.gonerino/depiction.json
