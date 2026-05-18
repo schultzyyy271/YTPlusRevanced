@@ -1,0 +1,256 @@
+name: Build YouTubePlusRevanced
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      youtube_version:
+        description: 'YouTube version to target'
+        required: false
+        default: '21.16.2'
+      scheme:
+        description: 'Package scheme'
+        type: choice
+        options:
+          - rootless
+          - rootful
+          - roothide
+        default: rootless
+      create_release:
+        description: 'Create a GitHub Release'
+        type: boolean
+        default: false
+
+env:
+  THEOS: ${{ github.workspace }}/theos
+  YOUTUBE_VERSION: ${{ inputs.youtube_version || '21.16.2' }}
+  SCHEME: ${{ inputs.scheme || 'rootless' }}
+
+jobs:
+  build:
+    name: Build deb (${{ inputs.scheme || 'rootless' }})
+    runs-on: macos-14
+
+    steps:
+      # ────────────────────────────────────────────────────────────────────────
+      # 1. Checkout (with all submodules — Tweaks/* must be git submodules)
+      # ────────────────────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # ────────────────────────────────────────────────────────────────────────
+      # 2. Install Theos
+      # ────────────────────────────────────────────────────────────────────────
+      - name: Install Theos
+        run: |
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+        env:
+          THEOS_INSTALL_DIR: ${{ github.workspace }}
+
+      # ────────────────────────────────────────────────────────────────────────
+      # 3. iOS SDK — GitHub runners don't ship iPhoneOS SDKs
+      #    Swap URL if you host your own SDK tarball.
+      # ────────────────────────────────────────────────────────────────────────
+      - name: Fetch iOS 16.5 SDK
+        run: |
+          mkdir -p "$THEOS/sdks"
+          curl -fsSL "https://github.com/nicklama/theos-sdks/archive/master.tar.gz" \
+            | tar xz --strip-components=1 -C "$THEOS/sdks"
+          echo "Available SDKs:"
+          ls "$THEOS/sdks"
+
+      # ────────────────────────────────────────────────────────────────────────
+      # 4. Verify project structure
+      #    Build produces:
+      #      • YouTubePlusRevanced.dylib  (main tweak — all sources compiled inline)
+      #      • iSponsorBlock.dylib        (SUBPROJECT — built first, then INJECT_DYLIBS'd)
+      #      • 9 resource .bundles        (EMBED_BUNDLES)
+      # ────────────────────────────────────────────────────────────────────────
+      - name: Verify project structure
+        run: |
+          echo "── Checking critical directories ──"
+          fail=0
+          for dir in \
+            Tweaks/iSponsorBlock \
+            Tweaks/YTVideoOverlay \
+            Tweaks/ReturnYouTubeDislike \
+            Tweaks/YTUHD \
+            Tweaks/YouPiP \
+            Tweaks/DontEatMyContent \
+            Tweaks/Gonerino \
+            Tweaks/VolumeBoostYT \
+            Tweaks/YTweaks \
+            Tweaks/YouQuality \
+            Tweaks/YouGroupSettings \
+            Utils
+          do
+            if [ ! -d "$dir" ]; then
+              echo "::error::Missing directory: $dir"
+              fail=1
+            else
+              echo "✓ $dir"
+            fi
+          done
+
+          # iSponsorBlock must have its own Makefile (it's a SUBPROJECT)
+          if [ ! -f "Tweaks/iSponsorBlock/Makefile" ]; then
+            echo "::error::Tweaks/iSponsorBlock/Makefile not found"
+            fail=1
+          else
+            echo "✓ Tweaks/iSponsorBlock/Makefile"
+          fi
+
+          # Check resource bundles
+          for bundle in \
+            "Tweaks/iSponsorBlock/layout/Library/Application Support/iSponsorBlock.bundle" \
+            "Tweaks/YTVideoOverlay/layout/Library/Application Support/YTVideoOverlay.bundle" \
+            "Tweaks/ReturnYouTubeDislike/layout/Library/Application Support/RYD.bundle" \
+            "Tweaks/YTUHD/layout/Library/Application Support/YTUHD.bundle" \
+            "Tweaks/YouPiP/layout/Library/Application Support/YouPiP.bundle" \
+            "Tweaks/DontEatMyContent/layout/Library/Application Support/DontEatMyContent.bundle" \
+            "Tweaks/YouQuality/layout/Library/Application Support/YouQuality.bundle" \
+            "Tweaks/YTweaks/layout/Library/Application Support/YTWKS.bundle" \
+            "Tweaks/YouGroupSettings/layout/Library/Application Support/YouGroupSettings.bundle"
+          do
+            if [ ! -d "$bundle" ]; then
+              echo "::warning::Bundle not found: $bundle"
+            else
+              echo "✓ $(basename "$bundle")"
+            fi
+          done
+
+          [ $fail -eq 0 ] || exit 1
+
+      # ────────────────────────────────────────────────────────────────────────
+      # 5. Build
+      #    Theos handles the full pipeline:
+      #      a) Builds SUBPROJECTS → Tweaks/iSponsorBlock/.theos/obj/iSponsorBlock.dylib
+      #      b) Compiles main tweak _FILES → YouTubePlusRevanced.dylib
+      #      c) INJECT_DYLIBS copies iSponsorBlock.dylib into the package
+      #      d) EMBED_BUNDLES copies all 9 .bundle dirs into the package
+      #      e) dpkg-deb produces the final .deb
+      # ────────────────────────────────────────────────────────────────────────
+      - name: Build deb
+        run: |
+          case "$SCHEME" in
+            rootless) export THEOS_PACKAGE_SCHEME=rootless ;;
+            roothide) export THEOS_PACKAGE_SCHEME=roothide ;;
+            rootful)  unset THEOS_PACKAGE_SCHEME ;;
+          esac
+
+          make clean package \
+            DEBUG=0 \
+            FINALPACKAGE=1 \
+            YOUTUBE_VERSION="${YOUTUBE_VERSION}"
+
+      # ────────────────────────────────────────────────────────────────────────
+      # 6. Verify deb contents — both dylibs + bundles present
+      # ────────────────────────────────────────────────────────────────────────
+      - name: Verify deb contents
+        run: |
+          DEB=$(find packages/ .theos/debs/ -name "*.deb" 2>/dev/null | head -1)
+          if [ -z "$DEB" ]; then
+            echo "::error::No .deb found after build"
+            exit 1
+          fi
+          echo "Package: $DEB ($(du -h "$DEB" | cut -f1))"
+          echo ""
+
+          dpkg-deb -c "$DEB" | tee /tmp/deb-contents.txt
+          echo ""
+          echo "── Verifying expected contents ──"
+          fail=0
+
+          # Both dylibs must be present
+          for dylib in YouTubePlusRevanced.dylib iSponsorBlock.dylib; do
+            if grep -q "$dylib" /tmp/deb-contents.txt; then
+              echo "✓ dylib: $dylib"
+            else
+              echo "::error::Missing dylib: $dylib"
+              fail=1
+            fi
+          done
+
+          # All 9 resource bundles
+          for bundle in iSponsorBlock YTVideoOverlay RYD YTUHD YouPiP DontEatMyContent YouQuality YTWKS YouGroupSettings; do
+            if grep -q "${bundle}.bundle" /tmp/deb-contents.txt; then
+              echo "✓ bundle: ${bundle}.bundle"
+            else
+              echo "::warning::Missing bundle: ${bundle}.bundle"
+            fi
+          done
+
+          # Filter plist
+          if grep -q "YouTubePlusRevanced.plist" /tmp/deb-contents.txt; then
+            echo "✓ plist: YouTubePlusRevanced.plist"
+          else
+            echo "::warning::Missing: YouTubePlusRevanced.plist"
+          fi
+
+          [ $fail -eq 0 ] || exit 1
+
+      # ────────────────────────────────────────────────────────────────────────
+      # 7. Upload artifact
+      # ────────────────────────────────────────────────────────────────────────
+      - name: Collect deb
+        id: collect
+        run: |
+          mkdir -p artifacts
+          DEB=$(find packages/ .theos/debs/ -name "*.deb" 2>/dev/null | head -1)
+          cp "$DEB" artifacts/
+          FILENAME=$(basename "$DEB")
+          echo "deb_name=$FILENAME" >> "$GITHUB_OUTPUT"
+          echo "Artifact: $FILENAME ($(du -h "artifacts/$FILENAME" | cut -f1))"
+
+      - name: Upload deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.collect.outputs.deb_name }}
+          path: artifacts/*.deb
+          if-no-files-found: error
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Release (manual dispatch with create_release checked)
+  # ──────────────────────────────────────────────────────────────────────────────
+  release:
+    name: Create Release
+    needs: build
+    if: ${{ inputs.create_release == true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.YOUTUBE_VERSION }}-${{ github.run_number }}
+          name: YouTubePlusRevanced v${{ env.YOUTUBE_VERSION }} (Build ${{ github.run_number }})
+          body: |
+            ### YouTubePlusRevanced v${{ env.YOUTUBE_VERSION }}
+            **Scheme:** ${{ env.SCHEME }}
+
+            #### Package contents
+            - `YouTubePlusRevanced.dylib` — main tweak (all features)
+            - `iSponsorBlock.dylib` — SponsorBlock (separate dylib)
+            - 9 resource bundles (iSponsorBlock, YTVideoOverlay, RYD, YTUHD, YouPiP, DontEatMyContent, YouQuality, YTWKS, YouGroupSettings)
+
+            #### Install
+            Add repo to your package manager or install `.deb` via Filza / `dpkg -i`.
+          files: release-assets/*
+          draft: false
+          prerelease: false
+        env:
+          YOUTUBE_VERSION: ${{ inputs.youtube_version || '21.16.2' }}
+          SCHEME: ${{ inputs.scheme || 'rootless' }}
