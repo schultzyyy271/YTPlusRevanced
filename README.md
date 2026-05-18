@@ -7,7 +7,7 @@ A flexible enhancer for YouTube on iOS, featuring over a hundred customizable op
 |---|---|
 | **Latest confirmed** | 21.16.2 |
 | **Date tested** | May 2, 2026 |
-| **YouTube Plus Revanced version** | 1.0 (build v70) |
+| **YouTube Plus Revanced version** | beta1 |
 
 ---
 
