@@ -296,8 +296,7 @@ static UIImage *pipImage() {
     return [self pictureInPictureControllerIsPlaybackPaused:pictureInPictureController];
 }
 
-%new(v@:@)
-// pictureInPictureControllerStartPlayback: (with arg) removed — no-arg version exists
+// pictureInPictureControllerStartPlayback: (with arg) removed in 21.16.2
 
 %end
 
