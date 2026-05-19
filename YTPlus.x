@@ -1615,12 +1615,14 @@ static UIImage *YTPlusIconImage(NSInteger iconType) {
         default: {
             YTIIcon *icon = [%c(YTIIcon) new];
             icon.iconType = iconType;
-            if ([icon respondsToSelector:@selector(iconImageWithColor:)]) {
-                UIImage *image = [icon iconImageWithColor:[UIColor labelColor]];
+            SEL colorSel = @selector(iconImageWithColor:);
+            if ([icon respondsToSelector:colorSel]) {
+                UIImage *image = ((UIImage *(*)(id, SEL, id))objc_msgSend)(icon, colorSel, [UIColor labelColor]);
                 return [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] ?: [UIImage new];
             }
-            if ([icon respondsToSelector:@selector(iconImage)]) {
-                UIImage *image = [icon iconImage];
+            SEL plainSel = @selector(iconImage);
+            if ([icon respondsToSelector:plainSel]) {
+                UIImage *image = ((UIImage *(*)(id, SEL))objc_msgSend)(icon, plainSel);
                 return [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] ?: [UIImage new];
             }
             return [UIImage systemImageNamed:@"ellipsis.circle"] ?: [UIImage new];
