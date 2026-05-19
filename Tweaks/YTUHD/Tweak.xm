@@ -7,7 +7,6 @@
 #import <libundirect/libundirect_dynamic.h>
 #else
 // libundirect.h replaced by libundirect_dynamic.h (SIDELOAD=1)
-#endif
 #import <sys/sysctl.h>
 #import <version.h>
 #import "Header.h"
