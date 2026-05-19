@@ -72,6 +72,11 @@ NSString *getCompactQualityLabel(MLFormat *format) {
     return self;
 }
 
+%new(v@:@)
+- (void)updateYouQualityButton:(id)arg {
+    [self.overlayButtons[TweakKey] setTitle:currentQualityLabel forState:UIControlStateNormal];
+}
+
 // initWithDelegate:autoplaySwitchEnabled: removed in 21.16.2 — initWithDelegate: handles it
 %end
 
