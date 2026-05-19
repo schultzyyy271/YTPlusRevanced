@@ -88,7 +88,7 @@ jobs:
             FINALPACKAGE=1 \
             YOUTUBE_VERSION="${YOUTUBE_VERSION}"
 
-      # ── 5. Verify deb has both dylibs ──────────────────────────────────────
+      # ── 5. Verify deb has the dylib ───────────────────────────────────────────
       - name: Verify deb contents
         run: |
           DEB=$(find packages/ .theos/debs/ -name "*.deb" 2>/dev/null | head -1)
@@ -108,14 +108,12 @@ jobs:
           find . -type f | sort | tee /tmp/deb-files.txt
 
           echo ""
-          echo "── Checking for both dylibs ──"
-          for dylib in YouTubePlusRevanced.dylib iSponsorBlock.dylib; do
-            if grep -q "$dylib" /tmp/deb-files.txt; then
-              echo "✓ $dylib"
-            else
-              echo "::warning::$dylib not found in deb (may be named differently)"
-            fi
-          done
+          echo "── Checking for dylib ──"
+          if grep -q "YouTubePlusRevanced.dylib" /tmp/deb-files.txt; then
+            echo "✓ YouTubePlusRevanced.dylib (includes iSponsorBlock inline)"
+          else
+            echo "::warning::YouTubePlusRevanced.dylib not found"
+          fi
 
           echo ""
           echo "── Bundles found ──"
@@ -163,8 +161,7 @@ jobs:
             **Scheme:** ${{ env.SCHEME }}
 
             #### Package contents
-            - `YouTubePlusRevanced.dylib` — main tweak (all inline tweaks compiled in)
-            - `iSponsorBlock.dylib` — SponsorBlock (separate subproject)
+            - `YouTubePlusRevanced.dylib` — single dylib (all tweaks + iSponsorBlock compiled inline)
             - Resource bundles
 
             Install `.deb` via package manager, Filza, or `dpkg -i`.
