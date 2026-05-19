@@ -127,15 +127,12 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 
 %hook YTIPlayerResponse
 - (BOOL)isMonetized { return ytpBool(@"noAds") ? NO : YES; }
-// Kill in-player ad slots at the proto level (skippable/non-skippable/bumper)
-- (NSMutableArray *)adSlotsArray { return ytpBool(@"noAds") ? [NSMutableArray array] : %orig; }
+// adSlotsArray removed in 21.16.2
 %end
 
 %hook YTPlayerResponse
-%new
-- (NSMutableArray *)playerAdsArray { return [NSMutableArray array]; }
-%new
-- (NSMutableArray *)adSlotsArray { return [NSMutableArray array]; }
+// playerAdsArray/adSlotsArray removed — use adPlayerResponse instead
+- (id)adPlayerResponse { return ytpBool(@"noAds") ? nil : %orig; }
 %end
 
 %hook YTDataUtils
@@ -232,20 +229,33 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 
 // Level 2: Block ad model properties — tell YouTube the reel is not an ad
 %hook YTReelModel
-- (BOOL)isAd {
+- (BOOL)isAdVideo {
     if (ytpBool(@"noAds")) return NO;
     return %orig;
 }
 %end
 
-// Level 3: Block ad showing state on the playback overlay
+// Level 3: Block ad overlay on Shorts playback overlay
 %hook YTReelWatchPlaybackOverlayView
-- (BOOL)isAdShowing {
-    if (ytpBool(@"noAds")) return NO;
-    return %orig;
+// isAdShowing/setAdShowing removed in 21.16.2 — block ad overlays instead
+- (void)layoutAdsPlayerOverlayView {
+    if (ytpBool(@"noAds")) return;
+    %orig;
 }
-- (void)setAdShowing:(BOOL)showing {
-    if (ytpBool(@"noAds")) { %orig(NO); return; }
+- (void)layoutAdsBottomOverlayViewIfNeeded {
+    if (ytpBool(@"noAds")) return;
+    %orig;
+}
+- (void)layoutAdsTopOverlayViewIfNeeded {
+    if (ytpBool(@"noAds")) return;
+    %orig;
+}
+- (void)setAdsPlayerOrganicBottomOverlayView:(id)arg1 {
+    if (ytpBool(@"noAds")) return;
+    %orig;
+}
+- (void)setAdsPlayerOrganicTopOverlayView:(id)arg1 {
+    if (ytpBool(@"noAds")) return;
     %orig;
 }
 // ─── Shorts Download Button ──────────────────────────────────────────────────
@@ -281,7 +291,6 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 
 %new
 - (void)ytpShortsDownloadTapped:(UIButton *)sender {
-    // Walk responder chain to find YTPlayerViewController
     UIResponder *r = self;
     YTPlayerViewController *player = nil;
     while (r) {
@@ -302,43 +311,29 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
     YTPlusShowDownloadMgr(player, presenter, sender);
 }
 
-// ─── Hide Shorts Buttons (merged from duplicate hook) ────────────────────────
-- (void)setShareButton:(id)arg1 { if (!ytpBool(@"hideShortsShare")) %orig; }
 %end
 
 // Level 4: Block the ad fetch pipeline for reels
-%hook YTReelAdsAPIImpl
-- (void)fetchAdWithURL:(id)url responseBlock:(id)response errorBlock:(id)error {
-    if (ytpBool(@"noAds")) return;
-    %orig;
-}
-%end
-
+// YTReelAdsAPIImpl removed in 21.16.2 — V1 and V2 use observer pattern now
 %hook YTReelAdsAPIV1Impl
-- (void)fetchAdWithURL:(id)url responseBlock:(id)response errorBlock:(id)error {
+- (void)didAddNewReelContentModel:(id)model {
     if (ytpBool(@"noAds")) return;
     %orig;
 }
 %end
 
 %hook YTReelAdsAPIV2Impl
-- (void)fetchAdWithURL:(id)url responseBlock:(id)response errorBlock:(id)error {
+- (void)didReceiveReelWatchSequenceResponse:(id)response {
+    if (ytpBool(@"noAds")) return;
+    %orig;
+}
+- (void)didReceivePlayerResponse:(id)response forItemIdentifier:(id)identifier {
     if (ytpBool(@"noAds")) return;
     %orig;
 }
 %end
 
-// Level 5: Block ad break fetching
-%hook YTReelAdsPresenterManager
-- (void)fetchAdBreaksWithVideoID:(id)videoID responseBlock:(id)response errorBlock:(id)error {
-    if (ytpBool(@"noAds")) return;
-    %orig;
-}
-- (void)fetchAdDataWithURL:(id)url responseBlock:(id)response errorBlock:(id)error {
-    if (ytpBool(@"noAds")) return;
-    %orig;
-}
-%end
+// Level 5: YTReelAdsPresenterManager removed in 21.16.2 — ads blocked at other levels
 
 // Level 6: Additional config flags — merged into main YTColdConfig block below
 
@@ -380,11 +375,7 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 - (void)addEventHandlers {}
 %end
 
-%hook YTPromoThrottleController
-- (BOOL)canShowThrottledPromo { return NO; }
-- (BOOL)canShowThrottledPromoWithFrequencyCap:(id)arg1 { return NO; }
-- (BOOL)canShowThrottledPromoWithFrequencyCaps:(id)arg1 { return NO; }
-%end
+// YTPromoThrottleController removed in 21.16.2 — Impl version below handles it
 
 %hook YTIShowFullscreenInterstitialCommand
 - (BOOL)shouldThrottleInterstitial { return YES; }
@@ -414,17 +405,13 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 - (BOOL)areMementoPromotionsEnabled { return NO; }
 %end
 
-%hook MDXSession
-- (void)adPlaying:(id)ad {}
-%end
+// MDXSession removed in 21.16.2
 
 %hook MDXSessionImpl
 - (void)adPlaying:(id)ad {}
 %end
 
-%hook YTAppMealbarPromoController
-- (id)mealbarPromoController { return nil; }
-%end
+// YTAppMealbarPromoController removed in 21.16.2
 
 %hook YTAppMealbarPromoControllerImpl
 - (id)mealbarPromoController { return nil; }
@@ -570,9 +557,7 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 - (void)updateAllRouteButtons { if (!ytpBool(@"noCast")) %orig; }
 %end
 
-%hook YTSettings
-- (void)setDisableMDXDeviceDiscovery:(BOOL)arg1 { %orig(ytpBool(@"noCast")); }
-%end
+// YTSettings removed in 21.16.2 — noCast handled elsewhere
 
 %hook YTRightNavigationButtons
 - (void)layoutSubviews {
@@ -678,29 +663,23 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 - (BOOL)removePreviousPaddleForSingletonVideos { return ytpBool(@"hidePrevNext") ? YES : %orig; }
 - (BOOL)replaceNextPaddleWithFastForwardButtonForSingletonVods { return ytpBool(@"replacePrevNext") ? YES : %orig; }
 - (BOOL)replacePreviousPaddleWithRewindButtonForSingletonVods { return ytpBool(@"replacePrevNext") ? YES : %orig; }
-- (BOOL)videoZoomFreeZoomEnabledGlobalConfig { return ytpBool(@"noFreeZoom") ? NO : %orig; } // ❌ BROKEN: method removed in YT 21.16.2 — noFreeZoom toggle non-functional
+// videoZoomFreeZoomEnabledGlobalConfig — removed in 21.16.2
+// enableChipsInTheCommentsHeaderIos — removed in 21.16.2
+// shouldUseAppThemeSetting — removed in 21.16.2
+// isLandscapeEngagementPanelSwipeRightToDismissEnabled — removed in 21.16.2
 - (BOOL)enableHideChipsInTheCommentsHeaderOnScrollIos { return ytpBool(@"stickSortComments") ? NO : %orig; }
-- (BOOL)enableChipsInTheCommentsHeaderIos { return ytpBool(@"hideSortComments") ? NO : %orig; } // ❌ BROKEN: method removed in YT 21.16.2 — hideSortComments toggle non-functional
-- (BOOL)shouldUseAppThemeSetting { return YES; } // ❌ BROKEN: method removed in YT 21.16.2
-- (BOOL)isLandscapeEngagementPanelSwipeRightToDismissEnabled { return YES; } // ❌ BROKEN: method removed in YT 21.16.2
 - (BOOL)enableSwipeToRemoveInPlaylistWatchEp { return YES; }
 - (BOOL)queueClientGlobalConfigEnableFloatingPlaylistMinibar { return ytpBool(@"playlistOldMinibar") ? NO : %orig; }
 // Shorts config
 - (BOOL)iosEnableVideoPlayerScrubber { return ytpBool(@"shortsProgress") ? YES : %orig; }
-- (BOOL)mobileShortsTabInlined { return ytpBool(@"shortsProgress") ? YES : NO; } // ❌ BROKEN: method removed in YT 21.16.2 — shortsProgress partially non-functional
-- (BOOL)iosUseSystemVolumeControlInFullscreen { return ytpBool(@"stockVolumeHUD") ? YES : NO; } // ❌ BROKEN: method removed in YT 21.16.2 — stockVolumeHUD toggle non-functional
-// Shorts ad blocking
-- (BOOL)enableShortsAdsEndcap { return ytpBool(@"noAds") ? NO : %orig; }
-- (BOOL)enableShortsAdsPlayerSide { return ytpBool(@"noAds") ? NO : %orig; }
-- (BOOL)enableShortsAdsUnderlay { return ytpBool(@"noAds") ? NO : %orig; }
-- (BOOL)enableShortsAdLeaveBehindClient { return ytpBool(@"noAds") ? NO : %orig; }
-- (BOOL)iosEnableShortsAdsRenderingFlowRefactoring { return ytpBool(@"noAds") ? NO : %orig; }
-- (BOOL)enableReelAdsScrollBlockFix { return ytpBool(@"noAds") ? NO : %orig; }
+// mobileShortsTabInlined — removed in 21.16.2
+// iosUseSystemVolumeControlInFullscreen — removed in 21.16.2
+// Shorts ad blocking — all removed in 21.16.2, ads blocked at overlay/data level instead
 - (BOOL)shortsConsumptionClientGlobalConfigEnableBackgroundRenderingOnShortsAds { return ytpBool(@"noAds") ? NO : %orig; }
 %end
 
 %hook YTHotConfig
-- (BOOL)enablePlayerBarForVerticalVideoWhenControlsHiddenInFullscreen { return ytpBool(@"shortsProgress") ? YES : %orig; } // ❌ BROKEN: method removed in YT 21.16.2
+// enablePlayerBarForVerticalVideoWhenControlsHiddenInFullscreen — removed in 21.16.2
 // Shorts quality picker (from YouMod)
 - (BOOL)enableOmitAdvancedMenuInShortsVideoQualityPicker { return YES; }
 - (BOOL)enableShortsVideoQualityPicker { return YES; }
@@ -767,9 +746,7 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 
 // ─── Miniplayer ───────────────────────────────────────────────────────────────
 
-%hook YTWatchMiniBarVisibilityController
-- (void)updateMiniBarPlayerStateFromRenderer { if (!ytpBool(@"miniplayer")) %orig; }
-%end
+// YTWatchMiniBarVisibilityController removed in 21.16.2
 
 // ─── Portrait Fullscreen ──────────────────────────────────────────────────────
 
@@ -791,27 +768,11 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 
 // ─── Classic Video Quality ────────────────────────────────────────────────────
 
-%hook YTVideoQualitySwitchControllerFactory
-- (id)videoQualitySwitchControllerWithParentResponder:(id)responder {
-    Class originalClass = %c(YTVideoQualitySwitchOriginalController);
-    return ytpBool(@"classicQuality") && originalClass ? [[originalClass alloc] initWithParentResponder:responder] : %orig;
-}
-%end
+// YTVideoQualitySwitchControllerFactory removed in 21.16.2
 
 // ─── Extra Speed Options ──────────────────────────────────────────────────────
-
-%hook YTVarispeedSwitchController
-- (void)setDelegate:(id)arg1 {
-    NSMutableArray *optionsCopy = [[self valueForKey:@"_options"] mutableCopy];
-    NSArray *speedTitles = @[@"2.5", @"3", @"3.5", @"4", @"5"];
-    for (NSString *title in speedTitles) {
-        YTVarispeedSwitchControllerOption *option = [[%c(YTVarispeedSwitchControllerOption) alloc] initWithTitle:title rate:[title floatValue]];
-        [optionsCopy addObject:option];
-    }
-    if (ytpBool(@"extraSpeedOptions")) [self setValue:[optionsCopy copy] forKey:@"_options"];
-    return %orig;
-}
-%end
+// YTVarispeedSwitchController removed in 21.16.2
+// Speed control is now handled via YTPlayerViewController setPlaybackRate:
 
 // Version spoof needed for classic quality & extra speeds
 %hook YTVersionUtils
@@ -855,10 +816,7 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 
 // ─── Hints ───────────────────────────────────────────────────────────────────
 
-%hook YTSettings
-- (BOOL)areHintsDisabled { return ytpBool(@"noHints") ? YES : NO; }
-- (void)setHintsDisabled:(BOOL)arg1 { ytpBool(@"noHints") ? %orig(YES) : %orig; }
-%end
+// YTSettings removed in 21.16.2 — hints handled by YTUserDefaults below
 
 %hook YTUserDefaults
 - (BOOL)areHintsDisabled { return ytpBool(@"noHints") ? YES : NO; }
@@ -910,11 +868,13 @@ static void autoSkipShorts(YTPlayerViewController *self, YTSingleVideoController
 // ─── Player View Controller ───────────────────────────────────────────────────
 
 %hook YTPlayerViewController
-// YouTube 21.x removed the 2-arg loadWithPlayerTransition:playbackConfig: and replaced it
-// with a 3-arg variant that includes initialTime. Hooking the wrong signature means Logos
-// silently skips the hook and none of the deferred selectors ever fire (shortsToRegular,
-// autoFullscreen, autoSpeed, autoQuality, disableAutoCaptions).
-- (void)loadWithPlayerTransition:(id)arg1 playbackConfig:(id)arg2 initialTime:(double)initialTime {
+// YouTube 21.16.2 removed loadWithPlayerTransition:playbackConfig:initialTime:
+// and replaced it with loadWithPlayerPlayback:. Also, YTPlayerViewController is
+// NOT a UIViewController subclass anymore — no viewDidAppear/viewWillDisappear.
+// Use playbackController:didActivateVideo:withPlaybackData: as the "loaded" event
+// and playbackControllerDidFinishPlayback: as the "unloaded" event.
+
+- (void)loadWithPlayerPlayback:(id)arg1 {
     %orig;
     if (ytpInt(@"wiFiQualityIndex") != 0 || ytpInt(@"cellQualityIndex") != 0)
         [self performSelector:@selector(autoQuality) withObject:nil afterDelay:1.0];
@@ -924,15 +884,14 @@ static void autoSkipShorts(YTPlayerViewController *self, YTSingleVideoController
         [self performSelector:@selector(setAutoSpeed) withObject:nil afterDelay:0.75];
     if (ytpBool(@"disableAutoCaptions"))
         [self performSelector:@selector(turnOffCaptions) withObject:nil afterDelay:1.0];
-    // shortsToRegular is now handled via YTReelWatchPlaybackOverlayView button, not here
 }
 
-- (void)viewDidAppear:(BOOL)animated {
+- (void)playbackController:(id)playbackController didActivateVideo:(id)video withPlaybackData:(id)data {
     %orig;
     YTPlusCurrentPlayerVC = self;
 }
 
-- (void)viewWillDisappear:(BOOL)animated {
+- (void)playbackControllerDidFinishPlayback:(id)playbackController {
     %orig;
     if (YTPlusCurrentPlayerVC == self)
         YTPlusCurrentPlayerVC = nil;
@@ -1085,13 +1044,7 @@ static void autoSkipShorts(YTPlayerViewController *self, YTSingleVideoController
 %end
 
 // ─── Context Menu Filtering ───────────────────────────────────────────────────
-
-%hook YTMenuItemVisibilityHandler
-- (BOOL)shouldShowServiceItemRenderer:(YTIMenuConditionalServiceItemRenderer *)renderer {
-    if (ytpBool(@"removePlayNext") && renderer.icon.iconType == 251) return NO;
-    return %orig;
-}
-%end
+// YTMenuItemVisibilityHandler removed in 21.16.2 — filtering done via YTDefaultSheetController
 
 %hook YTDefaultSheetController
 - (void)addAction:(YTActionSheetAction *)action {
@@ -1253,10 +1206,7 @@ static BOOL isAdDescription(NSString *desc) {
 %end
 
 // ─── Shorts Startup ───────────────────────────────────────────────────────────
-
-%hook YTShortsStartupCoordinator
-- (id)evaluateResumeToShorts { return ytpBool(@"resumeShorts") ? nil : %orig; }
-%end
+// YTShortsStartupCoordinator removed in 21.16.2
 
 %hook YTReelWatchRootViewController
 - (void)viewDidAppear:(BOOL)animated {
@@ -3909,15 +3859,7 @@ void YTPlusConfigureDownloadBtn(_ASDisplayView *view) {
 
 NSString *ytpGlobalAuthHeader = nil;
 
-%hook SSOAuthorization
-- (id)accessToken {
-    id token = %orig;
-    if ([token isKindOfClass:[NSString class]] && [(NSString *)token length] > 0) {
-        ytpGlobalAuthHeader = [NSString stringWithFormat:@"Bearer %@", token];
-    }
-    return token;
-}
-%end
+// SSOAuthorization removed in 21.16.2
 
 %hook SSOAuthorizationImpl
 - (id)accessToken {
