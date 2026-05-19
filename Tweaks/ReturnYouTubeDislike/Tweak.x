@@ -24,7 +24,7 @@ NSBundle *RYDBundle() {
 
 %hook YTReelWatchLikesController
 
-- (void)updateLikeButtonWithRenderer:(YTILikeButtonRenderer *)renderer {
+- (void)triggerEntityChangeForRenderer:(YTILikeButtonRenderer *)renderer {
     %orig;
     if (!RYDTweakEnabled()) return;
     YTQTMButton *dislikeButton = self.dislikeButton;
@@ -78,21 +78,7 @@ NSBundle *RYDBundle() {
 
 %end
 
-%hook YTLikeService
-
-- (void)notifyVideoLikeStatus:(YTLikeStatus)likeStatus withID:(NSString *)videoId {
-    if (RYDTweakEnabled() && VoteSubmissionEnabled())
-        sendVote(videoId, likeStatus);
-    %orig;
-}
-
-- (void)notifyPlaylistLikeStatus:(YTLikeStatus)likeStatus withID:(NSString *)playlistId {
-    if (RYDTweakEnabled() && VoteSubmissionEnabled())
-        sendVote(playlistId, likeStatus);
-    %orig;
-}
-
-%end
+// YTLikeService removed in 21.16.2
 
 %hook YTLikeServiceImpl
 

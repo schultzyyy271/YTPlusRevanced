@@ -292,11 +292,11 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
     while (r) {
         if ([r isKindOfClass:%c(YTPlayerViewController)]) { player = (YTPlayerViewController *)r; break; }
         if ([r isKindOfClass:%c(YTShortsPlayerViewController)]) {
-            player = [(YTShortsPlayerViewController *)r player];
+            if ([r respondsToSelector:@selector(player)]) player = [(id)r player];
             break;
         }
         if ([r isKindOfClass:%c(YTReelPlayerViewController)]) {
-            player = [(YTReelPlayerViewController *)r player];
+            if ([r respondsToSelector:@selector(player)]) player = [(id)r player];
             break;
         }
         r = r.nextResponder;
@@ -1208,7 +1208,7 @@ static BOOL isAdDescription(NSString *desc) {
 %hook YTReelWatchRootViewController
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
-    if (ytpBool(@"shortsOnlyMode")) if ([self.navigationController.parentViewController respondsToSelector:@selector(hidePivotBar)]) [self.navigationController.parentViewController hidePivotBar];
+    if (ytpBool(@"shortsOnlyMode")) { UIResponder *r = self; while (r) { if ([r respondsToSelector:@selector(hidePivotBar)]) { [r performSelector:@selector(hidePivotBar)]; break; } r = r.nextResponder; } }
 }
 %end
 
@@ -1223,8 +1223,8 @@ static BOOL isAdDescription(NSString *desc) {
 %end
 
 %hook YTReelTransparentStackView
-- (void)layoutSubviews {
-    %orig;
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    id result = %orig;
     for (YTQTMButton *button in self.subviews) {
         if ([button respondsToSelector:@selector(buttonRenderer)]) {
             if (ytpBool(@"hideShortsSearch") && button.buttonRenderer.icon.iconType == 1045) button.hidden = YES;
