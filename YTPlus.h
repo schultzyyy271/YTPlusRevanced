@@ -153,6 +153,7 @@
 @property (nonatomic, weak, readwrite) UIViewController *parentViewController;
 @property (nonatomic, weak, readwrite) UIViewController *UIDelegate;
 @property (nonatomic, readonly) NSString *contentVideoID;
+- (NSString *)currentVideoID;
 - (void)setActiveCaptionTrack:(id)track;
 - (void)setPlaybackRate:(CGFloat)rate;
 - (void)shortsToRegular;
