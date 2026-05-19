@@ -292,11 +292,11 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
     while (r) {
         if ([r isKindOfClass:%c(YTPlayerViewController)]) { player = (YTPlayerViewController *)r; break; }
         if ([r isKindOfClass:%c(YTShortsPlayerViewController)]) {
-            if ([r respondsToSelector:@selector(player)]) player = [(id)r player];
+            if ([r respondsToSelector:@selector(player)]) player = (YTPlayerViewController *)[(id)r player];
             break;
         }
         if ([r isKindOfClass:%c(YTReelPlayerViewController)]) {
-            if ([r respondsToSelector:@selector(player)]) player = [(id)r player];
+            if ([r respondsToSelector:@selector(player)]) player = (YTPlayerViewController *)[(id)r player];
             break;
         }
         r = r.nextResponder;
@@ -1224,7 +1224,7 @@ static BOOL isAdDescription(NSString *desc) {
 
 %hook YTReelTransparentStackView
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
-    id result = %orig;
+    UIView *result = %orig;
     for (YTQTMButton *button in self.subviews) {
         if ([button respondsToSelector:@selector(buttonRenderer)]) {
             if (ytpBool(@"hideShortsSearch") && button.buttonRenderer.icon.iconType == 1045) button.hidden = YES;
@@ -1232,6 +1232,7 @@ static BOOL isAdDescription(NSString *desc) {
             if (ytpBool(@"hideShortsMore") && button.buttonRenderer.icon.iconType == 1047) button.hidden = YES;
         }
     }
+    return result;
 }
 %end
 
