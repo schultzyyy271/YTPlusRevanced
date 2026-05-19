@@ -227,7 +227,7 @@
         }
 
         BOOL isEnabled = [[NSUserDefaults standardUserDefaults] objectForKey:@"GonerinoEnabled"] == nil
-                             ? YES
+                             ? NO
                              : [[NSUserDefaults standardUserDefaults] boolForKey:@"GonerinoEnabled"];
 
         UIImage *image     = [Util createBlockVideoIconWithSize:CGSizeMake(20, 20)];
@@ -268,7 +268,7 @@
 %new
 - (void)gonerinoButtonPressed:(UIButton *)sender {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    BOOL isEnabled = [defaults objectForKey:@"GonerinoEnabled"] == nil ? YES : [defaults boolForKey:@"GonerinoEnabled"];
+    BOOL isEnabled = [defaults objectForKey:@"GonerinoEnabled"] == nil ? NO : [defaults boolForKey:@"GonerinoEnabled"];
     BOOL newState  = !isEnabled;
     [defaults setBool:newState forKey:@"GonerinoEnabled"];
     [defaults synchronize];
