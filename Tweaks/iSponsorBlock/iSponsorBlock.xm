@@ -44,15 +44,23 @@ static void playSponsorAudio() {
 }
 
 // Check and translate segment title for HUD
-NSDictionary *categoryLocalization = @{
-    @"sponsor": LOC(@"sponsor"),
-    @"intro": LOC(@"intro"),
-    @"outro": LOC(@"outro"),
-    @"interaction": LOC(@"interaction"),
-    @"selfpromo": LOC(@"selfpromo"),
-    @"music_offtopic": LOC(@"music_offtopic"),
-    @"preview": LOC(@"preview"),
-};
+// Lazy-initialized because LOC() requires the bundle to be loaded first
+static NSDictionary *_categoryLocalization = nil;
+static NSDictionary *categoryLocalization_get(void) {
+    if (!_categoryLocalization) {
+        _categoryLocalization = @{
+            @"sponsor": LOC(@"sponsor") ?: @"Sponsor",
+            @"intro": LOC(@"intro") ?: @"Intro",
+            @"outro": LOC(@"outro") ?: @"Outro",
+            @"interaction": LOC(@"interaction") ?: @"Interaction",
+            @"selfpromo": LOC(@"selfpromo") ?: @"Self-promotion",
+            @"music_offtopic": LOC(@"music_offtopic") ?: @"Off-topic music",
+            @"preview": LOC(@"preview") ?: @"Preview",
+        };
+    }
+    return _categoryLocalization;
+}
+#define categoryLocalization categoryLocalization_get()
 
 %group Main
 NSString *modifiedTimeString;
