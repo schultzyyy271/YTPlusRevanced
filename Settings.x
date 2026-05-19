@@ -815,11 +815,7 @@ static NSString *GetCacheSize() {
                 [self switchWithTitle:@"NoDarkBg" key:@"noDarkBg"],
                 [self switchWithTitle:@"NoEndScreenCards" key:@"endScreenCards"],
                 [self switchWithTitle:@"NoFullscreenActions" key:@"noFullscreenActions"],
-                [self switchWithTitle:@"PersistentProgressBar" key:@"persistentProgressBar"],
-                [self brokenSwitchWithTitle:@"StockVolumeHUD ⚠️" key:@"stockVolumeHUD"],
-                [self switchWithTitle:@"NoRelatedVids" key:@"noRelatedVids"],
-                [self switchWithTitle:@"NoPromotionCards" key:@"noPromotionCards"],
-                [self switchWithTitle:@"NoWatermarks" key:@"noWatermarks"],
+                [self switchWithTitle:@"PersistentProgressBar" key:@"persistentProgressBar"],                [self switchWithTitle:@"NoRelatedVids" key:@"noRelatedVids"],                [self switchWithTitle:@"NoWatermarks" key:@"noWatermarks"],
                 [self switchWithTitle:@"VideoEndTime" key:@"videoEndTime"],
                 [self switchWithTitle:@"24hrFormat" key:@"24hrFormat"]
             ];
@@ -836,16 +832,11 @@ static NSString *GetCacheSize() {
         accessibilityIdentifier:@"YTPlusSectionItem"
         detailTextBlock:^NSString *{ return @">"; }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
-            NSArray *rows = @[
-                [self switchWithTitle:@"Miniplayer" key:@"miniplayer"],
-                [self switchWithTitle:@"PortraitFullscreen" key:@"portraitFullscreen"],
+            NSArray *rows = @[                [self switchWithTitle:@"PortraitFullscreen" key:@"portraitFullscreen"],
                 [self switchWithTitle:@"CopyWithTimestamp" key:@"copyWithTimestamp"],
                 [self switchWithTitle:@"DisableAutoplay" key:@"disableAutoplay"],
                 [self switchWithTitle:@"DisableAutoCaptions" key:@"disableAutoCaptions"],
-                [self switchWithTitle:@"NoContentWarning" key:@"noContentWarning"],
-                [self switchWithTitle:@"ClassicQuality" key:@"classicQuality"],
-                [self switchWithTitle:@"ExtraSpeedOptions" key:@"extraSpeedOptions"],
-                [self switchWithTitle:@"DontSnap2Chapter" key:@"dontSnapToChapter"],
+                [self switchWithTitle:@"NoContentWarning" key:@"noContentWarning"],                [self switchWithTitle:@"DontSnap2Chapter" key:@"dontSnapToChapter"],
                 [self switchWithTitle:@"NoTwoFingerSnapToChapter" key:@"noTwoFingerSnapToChapter"],
                 [self switchWithTitle:@"PauseOnOverlay" key:@"pauseOnOverlay"],
                 [self switchWithTitle:@"RedProgressBar" key:@"redProgressBar"],
@@ -855,9 +846,7 @@ static NSString *GetCacheSize() {
                 [self switchWithTitle:@"SaveToPhotos" key:@"downloadSaveToPhotos"],
                 [self switchWithTitle:@"PreferDRCAudio" key:@"downloadPreferDRC"],
                 [self switchWithTitle:@"NoPlayerDownloadButton" key:@"noPlayerDownloadButton"],
-                [self switchWithTitle:@"NoHints" key:@"noHints"],
-                [self brokenSwitchWithTitle:@"NoFreeZoom ⚠️" key:@"noFreeZoom"],
-                [self switchWithTitle:@"AutoFullscreen" key:@"autoFullscreen"],
+                [self switchWithTitle:@"NoHints" key:@"noHints"],                [self switchWithTitle:@"AutoFullscreen" key:@"autoFullscreen"],
                 [self switchWithTitle:@"ExitFullscreen" key:@"exitFullscreen"],
                 [self switchWithTitle:@"NoDoubleTap2Seek" key:@"noDoubleTapToSeek"]
             ];
@@ -880,9 +869,7 @@ static NSString *GetCacheSize() {
                 [self switchWithTitle:@"HideShorts" key:@"hideShorts"],
                 [self switchWithTitle:@"ShortsProgress" key:@"shortsProgress"],
                 [self switchWithTitle:@"PinchToFullscreenShorts" key:@"pinchToFullscreenShorts"],
-                [self switchWithTitle:@"ShortsToRegular" key:@"shortsToRegular"],
-                [self switchWithTitle:@"ResumeShorts" key:@"resumeShorts"],
-                [self switchWithTitle:@"HideShortsLogo" key:@"hideShortsLogo"],
+                [self switchWithTitle:@"ShortsToRegular" key:@"shortsToRegular"],                [self switchWithTitle:@"HideShortsLogo" key:@"hideShortsLogo"],
                 [self switchWithTitle:@"HideShortsSearch" key:@"hideShortsSearch"],
                 [self switchWithTitle:@"HideShortsCamera" key:@"hideShortsCamera"],
                 [self switchWithTitle:@"HideShortsMore" key:@"hideShortsMore"],
@@ -963,15 +950,11 @@ static NSString *GetCacheSize() {
         accessibilityIdentifier:@"YTPlusSectionItem"
         detailTextBlock:^NSString *{ return @">"; }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
-            NSArray *rows = @[
-                [self switchWithTitle:@"CopyVideoInfo" key:@"copyVideoInfo"],
-                [self switchWithTitle:@"PostManager" key:@"postManager"],
+            NSArray *rows = @[                [self switchWithTitle:@"PostManager" key:@"postManager"],
                 [self switchWithTitle:@"SaveProfilePhoto" key:@"saveProfilePhoto"],
                 [self switchWithTitle:@"CommentManager" key:@"commentManager"],
                 [self switchWithTitle:@"FixAlbums" key:@"fixAlbums"],
-                [self switchWithTitle:@"NativeShare" key:@"nativeShare"],
-                [self switchWithTitle:@"RemovePlayNext" key:@"removePlayNext"],
-                [self switchWithTitle:@"RemoveDownloadMenu" key:@"removeDownloadMenu"],
+                [self switchWithTitle:@"NativeShare" key:@"nativeShare"],                [self switchWithTitle:@"RemoveDownloadMenu" key:@"removeDownloadMenu"],
                 [self switchWithTitle:@"RemoveWatchLaterMenu" key:@"removeWatchLaterMenu"],
                 [self switchWithTitle:@"RemoveSaveToPlaylistMenu" key:@"removeSaveToPlaylistMenu"],
                 [self switchWithTitle:@"RemoveShareMenu" key:@"removeShareMenu"],
@@ -981,11 +964,7 @@ static NSString *GetCacheSize() {
                 [self switchWithTitle:@"NoContinueWatching" key:@"noContinueWatching"],
                 [self switchWithTitle:@"NoSearchHistory" key:@"noSearchHistory"],
                 [self switchWithTitle:@"NoRelatedWatchNexts" key:@"noRelatedWatchNexts"],
-                [self switchWithTitle:@"StickSortComments" key:@"stickSortComments"],
-                [self brokenSwitchWithTitle:@"HideSortComments ⚠️" key:@"hideSortComments"],
-                [self switchWithTitle:@"PlaylistOldMinibar" key:@"playlistOldMinibar"],
-                [self brokenSwitchWithTitle:@"DisableRTL ⚠️" key:@"disableRTL"]
-            ];
+                [self switchWithTitle:@"StickSortComments" key:@"stickSortComments"],                [self switchWithTitle:@"PlaylistOldMinibar" key:@"playlistOldMinibar"],            ];
             YTSettingsPickerViewController *picker = [[%c(YTSettingsPickerViewController) alloc]
                 initWithNavTitle:LOC(@"Other") pickerSectionTitle:nil rows:rows
                 selectedItemIndex:NSNotFound parentResponder:[self parentResponder]];

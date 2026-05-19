@@ -10,7 +10,7 @@ FINALPACKAGE = 1
 ifndef YOUTUBE_VERSION
 YOUTUBE_VERSION = 21.16.2
 endif
-PACKAGE_VERSION = 0
+PACKAGE_VERSION = $(YOUTUBE_VERSION)
 
 # ── Package metadata ──────────────────────────────────────────────────────────
 TWEAK_NAME       = YouTubePlusRevanced
@@ -64,8 +64,6 @@ $(TWEAK_NAME)_FILES = \
 	Tweaks/Gonerino/sources/VideoManager.m \
 	Tweaks/Gonerino/sources/WordManager.m \
 	Tweaks/Gonerino/sources/Sideloading.x \
-	Tweaks/VolumeBoostYT/Tweak.x \
-	Tweaks/VolumeBoostYT/YTVolumeHUD.m \
 	Tweaks/YTweaks/Tweak.x \
 	Tweaks/YTweaks/Settings.x \
 	Tweaks/YouGroupSettings/Tweak.x \

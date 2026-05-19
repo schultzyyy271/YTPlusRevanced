@@ -297,12 +297,16 @@ static UIImage *pipImage() {
 }
 
 %new(v@:@)
-- (void)pictureInPictureControllerStartPlayback:(id)arg1 {
+// pictureInPictureControllerStartPlayback: (with arg) removed — no-arg version exists
+#if 0
+- (void)pictureInPictureControllerStartPlayback_DISABLED:(id)arg1 {
     [self pictureInPictureControllerStartPlayback];
 }
 
 %new(v@:@)
-- (void)pictureInPictureControllerStopPlayback:(id)arg1 {
+// pictureInPictureControllerStopPlayback: (with arg) removed
+#if 0
+- (void)pictureInPictureControllerStopPlayback_DISABLED:(id)arg1 {
     [self pictureInPictureControllerStopPlayback];
 }
 
@@ -314,14 +318,18 @@ static UIImage *pipImage() {
 }
 
 %new(v@:@)
-- (void)appWillEnterForeground:(id)arg1 {
+// appWillEnterForeground: removed in 21.16.2
+#if 0
+- (void)appWillEnterForeground_DISABLED:(id)arg1 {
     if (IS_IOS_OR_NEWER(iOS_15_0) || LegacyPiP()) return;
     AVPictureInPictureController *avpip = [self valueForKey:@"_pictureInPictureController"];
     [avpip sampleBufferDisplayLayerDidAppear];
 }
 
 %new(v@:@)
-- (void)appWillEnterBackground:(id)arg1 {
+// appWillEnterBackground: removed in 21.16.2
+#if 0
+- (void)appWillEnterBackground_DISABLED:(id)arg1 {
     if (IS_IOS_OR_NEWER(iOS_15_0) || LegacyPiP()) return;
     AVPictureInPictureController *avpip = [self valueForKey:@"_pictureInPictureController"];
     [avpip sampleBufferDisplayLayerDidDisappear];
@@ -329,24 +337,7 @@ static UIImage *pipImage() {
 
 %end
 
-%hook YTIIosMediaHotConfig
-
-%new(B@:)
-- (BOOL)enablePictureInPicture {
-    return YES;
-}
-
-%new(B@:)
-- (BOOL)enablePipForNonBackgroundableContent {
-    return NonBackgroundable();
-}
-
-%new(B@:)
-- (BOOL)enablePipForNonPremiumUsers {
-    return YES;
-}
-
-%end
+// YTIIosMediaHotConfig PiP methods removed in 21.16.2
 
 #pragma mark - Hacks
 
@@ -357,12 +348,18 @@ BOOL YTSingleVideo_isLivePlayback_override = NO;
 - (BOOL)isLivePlayback {
     return YTSingleVideo_isLivePlayback_override ? NO : %orig;
 }
+#endif
+#endif
+#endif
+#endif
 
 %end
 
 %hook YTPlayerPIPController
 
-- (BOOL)canInvokePictureInPicture {
+// canInvokePictureInPicture removed in 21.16.2 — canEnablePictureInPicture handles it
+#if 0
+- (BOOL)canInvokePictureInPicture_DISABLED {
     YTSingleVideo_isLivePlayback_override = YES;
     BOOL value = %orig;
     YTSingleVideo_isLivePlayback_override = NO;
@@ -381,7 +378,7 @@ BOOL YTSingleVideo_isLivePlayback_override = NO;
     %orig;
 }
 
-- (void)appWillResignActive:(id)arg1 {
+- (void)appWillResignActive {
     if (!UseAllPiPMethod()) {
         // If PiP button on, PiP doesn't activate on app resign unless it's from user
         BOOL hasPiPButton = UsePiPButton() || UseTabBarPiPButton();
@@ -418,7 +415,9 @@ BOOL YTSingleVideo_isLivePlayback_override = NO;
     return YES;
 }
 
-- (BOOL)hasPictureInPicture {
+// hasPictureInPicture removed in 21.16.2
+#if 0
+- (BOOL)hasPictureInPicture_DISABLED {
     return YES;
 }
 
@@ -442,23 +441,7 @@ BOOL YTSingleVideo_isLivePlayback_override = NO;
 - (void)appWillEnterBackground:(UIApplication *)application;
 @end
 
-%hook YTSystemNotifications
-
-- (void)registerForNotifications {
-    %orig;
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillEnterBackground:) name:UIApplicationDidEnterBackgroundNotification object:nil];
-}
-
-%new(v@:@)
-- (void)appWillEnterBackground:(id)arg {
-    [self callBlockForEveryObserver:^(id <YTSystemNotificationsObserver> observer) {
-        id <YTSystemNotificationsObserverExtended> observerExtended = (id <YTSystemNotificationsObserverExtended>)observer;
-        if ([observerExtended respondsToSelector:@selector(appWillEnterBackground:)])
-            [observerExtended appWillEnterBackground:UIApplication.sharedApplication];
-    }];
-}
-
-%end
+// YTSystemNotifications removed in 21.16.2
 
 NSBundle *YouPiPBundle() {
     static NSBundle *bundle = nil;

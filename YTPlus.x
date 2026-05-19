@@ -217,10 +217,6 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 
 // Level 1: Hide the ad overlay
 %hook YTReelAdsOverlayView
-- (void)setHidden:(BOOL)hidden {
-    if (ytpBool(@"noAds")) { %orig(YES); return; }
-    %orig;
-}
 - (void)layoutSubviews {
     if (ytpBool(@"noAds")) { ((UIView *)self).hidden = YES; return; }
     %orig;
@@ -796,7 +792,7 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 // ─── Snap To Chapter ──────────────────────────────────────────────────────────
 
 %hook YTInlinePlayerBarView
-- (void)didMoveToWindow { %orig; if (ytpBool(@"dontSnapToChapter")) self.enableSnapToChapter = NO; }
+- (void)layoutSubviews { %orig; if (ytpBool(@"dontSnapToChapter") && [self respondsToSelector:@selector(setEnableSnapToChapter:)]) self.enableSnapToChapter = NO; }
 %end
 
 // ─── Red Progress Bar ─────────────────────────────────────────────────────────
@@ -819,6 +815,7 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 // YTSettings removed in 21.16.2 — hints handled by YTUserDefaults below
 
 %hook YTUserDefaults
+- (void)setDisableMDXDeviceDiscovery:(BOOL)arg1 { %orig(ytpBool(@"noCast")); }
 - (BOOL)areHintsDisabled { return ytpBool(@"noHints") ? YES : NO; }
 - (void)setHintsDisabled:(BOOL)arg1 { ytpBool(@"noHints") ? %orig(YES) : %orig; }
 %end
@@ -1211,7 +1208,7 @@ static BOOL isAdDescription(NSString *desc) {
 %hook YTReelWatchRootViewController
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
-    if (ytpBool(@"shortsOnlyMode")) [self.navigationController.parentViewController hidePivotBar];
+    if (ytpBool(@"shortsOnlyMode")) if ([self.navigationController.parentViewController respondsToSelector:@selector(hidePivotBar)]) [self.navigationController.parentViewController hidePivotBar];
 }
 %end
 
@@ -1285,10 +1282,7 @@ static BOOL isOverlayShown = YES;
     }
 }
 // Block promoted reel ads
-- (void)setShortsAdsRenderer:(id)renderer {
-    if (ytpBool(@"noAds")) return;
-    %orig;
-}
+// setShortsAdsRenderer: removed in 21.16.2
 - (BOOL)hasShortsAdsRenderer {
     if (ytpBool(@"noAds")) return NO;
     return %orig;

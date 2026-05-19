@@ -150,18 +150,7 @@ YTPlayerPIPController *initPlayerPiPControllerIfNeeded(YTPlayerPIPController *co
 
 %end
 
-%hook YTResumeToHomeController
-
-- (instancetype)init {
-    self = %orig;
-    if (!IS_IOS_OR_NEWER(iOS_15_0)) {
-        MLPIPController *pip = InjectMLPIPController();
-        [pip addPIPControllerObserver:self];
-    }
-    return self;
-}
-
-%end
+// YTResumeToHomeController removed in 21.16.2
 
 %end
 
@@ -233,31 +222,7 @@ static MLAVPlayer *makeAVPlayer(id self, MLVideo *video, MLInnerTubePlayerConfig
 
 %end
 
-%hook MLPlayerPool
-
-- (id)acquirePlayerForVideo:(MLVideo *)video playerConfig:(MLInnerTubePlayerConfig *)playerConfig stickySettings:(MLPlayerStickySettings *)stickySettings {
-    return makeAVPlayer(self, video, playerConfig, stickySettings);
-}
-
-- (id)acquirePlayerForVideo:(MLVideo *)video playerConfig:(MLInnerTubePlayerConfig *)playerConfig stickySettings:(MLPlayerStickySettings *)stickySettings latencyLogger:(id)latencyLogger {
-    return makeAVPlayer(self, video, playerConfig, stickySettings);
-}
-
-- (MLAVPlayerLayerView *)playerViewForVideo:(MLVideo *)video playerConfig:(MLInnerTubePlayerConfig *)playerConfig {
-    MLDefaultPlayerViewFactory *factory = [self valueForKey:@"_playerViewFactory"];
-    return [factory AVPlayerViewForVideo:video playerConfig:playerConfig];
-}
-
-- (BOOL)canUsePlayerView:(id)playerView forVideo:(MLVideo *)video playerConfig:(MLInnerTubePlayerConfig *)playerConfig {
-    forceRenderViewTypeBase([playerConfig hamplayerConfig]);
-    return %orig;
-}
-
-- (BOOL)canQueuePlayerPlayVideo:(MLVideo *)video playerConfig:(MLInnerTubePlayerConfig *)playerConfig {
-    return NO;
-}
-
-%end
+// MLPlayerPool removed in 21.16.2 — MLPlayerPoolImpl handles it
 
 %hook MLDefaultPlayerViewFactory
 
@@ -303,27 +268,7 @@ static MLAVPlayer *makeAVPlayer(id self, MLVideo *video, MLInnerTubePlayerConfig
 
 %group Compat
 
-%hook AVPictureInPictureController
-
-%new(v@:)
-- (void)invalidatePlaybackState {}
-
-%new(v@:)
-- (void)sampleBufferDisplayLayerDidDisappear {}
-
-%new(v@:)
-- (void)sampleBufferDisplayLayerDidAppear {}
-
-%new(v@:{CGSize=dd})
-- (void)sampleBufferDisplayLayerRenderSizeDidChangeToSize:(CGSize)size {}
-
-%new(v@:B)
-- (void)setRequiresLinearPlayback:(BOOL)linear {}
-
-%new(v@:)
-- (void)reloadPrerollAttributes {}
-
-%end
+// AVPictureInPictureController not in YouTube binary
 
 %end
 
@@ -332,40 +277,15 @@ static MLAVPlayer *makeAVPlayer(id self, MLVideo *video, MLInnerTubePlayerConfig
 
 %group AVKit_iOS14_2_Up
 
-%hook AVPictureInPictureControllerContentSource
-
-%property (assign) bool hasInitialRenderSize;
-
-- (id)initWithSampleBufferDisplayLayer:(AVSampleBufferDisplayLayer *)sampleBufferDisplayLayer initialRenderSize:(CGSize)initialRenderSize playbackDelegate:(id)playbackDelegate {
-    self = %orig;
-    if (self)
-        self.hasInitialRenderSize = true;
-    return self;
-}
-
-%end
+// AVPictureInPictureControllerContentSource not in YouTube binary
 
 %end
 
 %group AVKit_preiOS14_2
 
-%hook AVPictureInPictureControllerContentSource
+// AVPictureInPictureControllerContentSource not in YouTube binary
 
-%property (assign) bool hasInitialRenderSize;
-
-%new(@@:@{CGSize=dd}@)
-- (instancetype)initWithSampleBufferDisplayLayer:(AVSampleBufferDisplayLayer *)sampleBufferDisplayLayer initialRenderSize:(CGSize)initialRenderSize playbackDelegate:(id <AVPictureInPictureSampleBufferPlaybackDelegate>)playbackDelegate {
-    return [self initWithSampleBufferDisplayLayer:sampleBufferDisplayLayer playbackDelegate:playbackDelegate];
-}
-
-%end
-
-%hook AVPictureInPictureController
-
-%new(v@:B)
-- (void)setCanStartPictureInPictureAutomaticallyFromInline:(BOOL)canStartFromInline {}
-
-%end
+// AVPictureInPictureController not in YouTube binary
 
 %end
 

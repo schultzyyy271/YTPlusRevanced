@@ -66,23 +66,9 @@ static void hookFormats(MLABRPolicy *self) {
 
 %end
 
-%hook MLABRPolicyOld
+// MLABRPolicyOld removed in 21.16.2
 
-- (void)setFormats:(NSArray *)formats {
-    hookFormats(self);
-    %orig(filteredFormats(formats));
-}
-
-%end
-
-%hook MLABRPolicyNew
-
-- (void)setFormats:(NSArray *)formats {
-    hookFormats(self);
-    %orig(filteredFormats(formats));
-}
-
-%end
+// MLABRPolicyNew removed in 21.16.2
 
 %hook MLHAMPlayerItem
 
@@ -98,29 +84,7 @@ static void hookFormats(MLABRPolicy *self) {
 
 %end
 
-%hook YTIHamplayerHotConfig
-
-%new(i@:)
-- (int)libvpxDecodeThreads {
-    return DecodeThreads();
-}
-
-%new(B@:)
-- (BOOL)libvpxRowThreading {
-    return RowThreading();
-}
-
-%new(B@:)
-- (BOOL)libvpxSkipLoopFilter {
-    return SkipLoopFilter();
-}
-
-%new(B@:)
-- (BOOL)libvpxLoopFilterOptimization {
-    return LoopFilterOptimization();
-}
-
-%end
+// YTIHamplayerHotConfig libvpx methods removed in 21.16.2
 
 %hook YTColdConfig
 
@@ -252,12 +216,7 @@ BOOL overrideSupportsCodec = NO;
 
 %end
 
-%hook YTIIosOnesieHotConfig
-
-%new(B@:)
-- (BOOL)prepareVideoDecoder { return YES; }
-
-%end
+// YTIIosOnesieHotConfig prepareVideoDecoder removed in 21.16.2
 
 %group Codec
 

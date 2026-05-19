@@ -13,12 +13,14 @@ static void DEMC_deactivateConstraints();
 static void DEMC_centerRenderingView();
 
 %hook YTPlayerViewController
-- (void)viewDidAppear:(BOOL)animated {
+// viewDidAppear removed in 21.16.2 — setup moved to loadWithPlayerPlayback:
+- (void)loadWithPlayerPlayback:(id)arg1 {
+    %orig;
     YTPlayerView *playerView = [self playerView];
     UIView *renderingViewContainer = [playerView valueForKey:@"_renderingViewContainer"];
     renderingView = [playerView renderingView];
     if (IS_ENABLED(kDisableAmbientMode)) {
-        playerView.backgroundColor = [UIColor blackColor];;
+        playerView.backgroundColor = [UIColor blackColor];
         renderingViewContainer.backgroundColor = [UIColor blackColor];
         renderingView.backgroundColor = [UIColor blackColor];
     } else {
@@ -37,12 +39,10 @@ static void DEMC_centerRenderingView();
             renderingView.backgroundColor = [UIColor redColor];
         }
         YTMainAppVideoPlayerOverlayViewController *activeVideoPlayerOverlay = [self activeVideoPlayerOverlay];
-        // Must check class since YTInlineMutedPlaybackPlayerOverlayViewController doesn't have -(BOOL)isFullscreen
         if ([activeVideoPlayerOverlay isKindOfClass:%c(YTMainAppVideoPlayerOverlayViewController)] &&
             [activeVideoPlayerOverlay isFullscreen] && !isZoomedToFill && !isEngagementPanelVisible)
             DEMC_activateConstraints();
     }
-    %orig;
 }
 // New video played
 - (void)playbackController:(id)playbackController didActivateVideo:(id)video withPlaybackData:(id)playbackData {
@@ -124,34 +124,11 @@ static void DEMC_centerRenderingView();
 
 #pragma mark - Mini bar dismiss
 
-%hook YTWatchMiniBarViewController
-- (void)dismissMiniBarWithVelocity:(CGFloat)velocity gestureType:(int)gestureType {
-    %orig;
-    isZoomedToFill = NO; // YouTube undoes zoom-to-fill when mini bar is dismissed
-}
-- (void)dismissMiniBarWithVelocity:(CGFloat)velocity gestureType:(int)gestureType skipShouldDismissCheck:(BOOL)skipShouldDismissCheck {
-    %orig;
-    isZoomedToFill = NO;
-}
-%end
+// YTWatchMiniBarViewController removed in 21.16.2
 
 #pragma mark - Engagement panels
 
-%hook YTMainAppEngagementPanelViewController
-// Engagement panel (comment, description, etc.) about to show up
-- (void)viewWillAppear:(BOOL)animated {
-    if ([self isPeekingSupported]) {
-        // Shorts (only Shorts support peeking, I think)
-    } else {
-        // Everything else
-        isEngagementPanelVisible = YES;
-        if ([self isLandscapeEngagementPanel]) {
-            DEMC_deactivateConstraints();
-        }
-    }
-    %orig;
-}
-%end
+// YTMainAppEngagementPanelViewController removed in 21.16.2
 
 %hook YTEngagementPanelContainerViewController
 // Engagement panel about to dismiss
@@ -172,7 +149,7 @@ static void DEMC_centerRenderingView();
     }
     %orig;
 }
-- (void)removeEngagementPanelViewControllerWithIdentifier:(id)identifier {
+- (void)removeEngagementPanel {
     // Usually called when engagement panel is open & new video is played or mini bar is dismissed
     isEngagementPanelViewControllerRemoved = YES;
     %orig;

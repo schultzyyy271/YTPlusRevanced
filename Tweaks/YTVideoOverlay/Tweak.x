@@ -225,7 +225,7 @@ static void sortButtons(NSMutableArray <NSString *> *buttons) {
     return nil;
 }
 
-- (NSMutableArray *)topButtonControls {
+- (NSMutableArray *)topControls {
     return topControls(self, %orig);
 }
 
@@ -278,7 +278,7 @@ static void sortButtons(NSMutableArray <NSString *> *buttons) {
     return icons;
 }
 
-- (void)updateIconVisibility {
+- (void)updateIconVisibilityAndLayout {
     %orig;
     for (NSString *name in bottomButtons) {
         if (UseBottomButton(name)) {
@@ -327,7 +327,9 @@ static void sortButtons(NSMutableArray <NSString *> *buttons) {
     }
 }
 
-- (void)peekWithShowScrubber:(BOOL)scrubber setControlsAbovePlayerBarVisible:(BOOL)visible {
+// peekWithShowScrubber:setControlsAbovePlayerBarVisible: removed in 21.16.2
+#if 0
+- (void)peekWithShowScrubber_DISABLED:(BOOL)scrubber setControlsAbovePlayerBarVisible:(BOOL)visible {
     %orig;
     for (NSString *name in bottomButtons) {
         if (UseBottomButton(name))
