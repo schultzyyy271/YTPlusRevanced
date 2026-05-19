@@ -137,11 +137,11 @@ void currentVideoTimeDidChange(YTPlayerViewController *self, YTSingleVideoTime *
             }
             //edge case where segment end time is longer than the video
             else if (sponsorSegment.endTime > self.currentVideoTotalMediaTime) {
-                [self isb_seekToTime:self.currentVideoTotalMediaTime];
+                [self isb_scrubToTime:self.currentVideoTotalMediaTime];
                 if (kEnableSkipCountTracking) [SponsorBlockRequest viewedVideoSponsorTime:sponsorSegment];
             }
             else {
-                [self isb_seekToTime:sponsorSegment.endTime];
+                [self isb_scrubToTime:sponsorSegment.endTime];
                 if (kEnableSkipCountTracking) [SponsorBlockRequest viewedVideoSponsorTime:sponsorSegment];
             }
             if ([[kCategorySettings objectForKey:sponsorSegment.category] intValue] == 1) {
@@ -219,9 +219,9 @@ void currentVideoTimeDidChange(YTPlayerViewController *self, YTSingleVideoTime *
 
 // used to keep support for older versions, as seekToTime is new
 %new(v@:d)
-- (void)isb_seekToTime:(CGFloat)time {
+- (void)isb_scrubToTime:(CGFloat)time {
     // YT v17.30.1 switched scrubToTime to seekToTime
-    [self respondsToSelector:@selector(seekToTime:)] ? [self seekToTime:time] : [self seekToTime:time];
+    [self respondsToSelector:@selector(scrubToTime:)] ? [self scrubToTime:time] : [self seekToTime:time];
 }
 
 - (void)singleVideo:(id)arg1 currentVideoTimeDidChange:(YTSingleVideoTime *)arg2 {
@@ -284,7 +284,7 @@ void currentVideoTimeDidChange(YTPlayerViewController *self, YTSingleVideoTime *
     }
 }
 
-- (void)seekToTime:(CGFloat)arg1 {
+- (void)scrubToTime:(CGFloat)arg1 {
     %orig;
     [self isb_fixVisualGlitch];
 }
@@ -297,10 +297,10 @@ void currentVideoTimeDidChange(YTPlayerViewController *self, YTSingleVideoTime *
 %new(v@:@)
 - (void)unskipSegment:(UIButton *)sender {
     if (self.currentSponsorSegment > 0) {
-        [self isb_seekToTime:((SponsorSegment *)self.skipSegments[self.currentSponsorSegment-1]).startTime];
+        [self isb_scrubToTime:((SponsorSegment *)self.skipSegments[self.currentSponsorSegment-1]).startTime];
         self.unskippedSegment = self.currentSponsorSegment-1;
     } else {
-        [self isb_seekToTime:((SponsorSegment *)self.skipSegments[self.currentSponsorSegment]).startTime];
+        [self isb_scrubToTime:((SponsorSegment *)self.skipSegments[self.currentSponsorSegment]).startTime];
         self.unskippedSegment = self.currentSponsorSegment;
     }
     [MBProgressHUD hideHUDForView:self.view animated:YES];
@@ -316,11 +316,11 @@ void currentVideoTimeDidChange(YTPlayerViewController *self, YTSingleVideoTime *
     }
     
     if (sponsorSegment.endTime > self.currentVideoTotalMediaTime) {
-        [self isb_seekToTime:self.currentVideoTotalMediaTime];
+        [self isb_scrubToTime:self.currentVideoTotalMediaTime];
         if (kEnableSkipCountTracking) [SponsorBlockRequest viewedVideoSponsorTime:sponsorSegment];
     }
     else {
-        [self isb_seekToTime:sponsorSegment.endTime];
+        [self isb_scrubToTime:sponsorSegment.endTime];
         if (kEnableSkipCountTracking) [SponsorBlockRequest viewedVideoSponsorTime:sponsorSegment];
     }
     [MBProgressHUD hideHUDForView:self.view animated:YES];
