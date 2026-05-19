@@ -10,7 +10,7 @@ FINALPACKAGE = 1
 ifndef YOUTUBE_VERSION
 YOUTUBE_VERSION = 21.16.2
 endif
-PACKAGE_VERSION = $(YOUTUBE_VERSION)
+PACKAGE_VERSION = 0
 
 # ── Package metadata ──────────────────────────────────────────────────────────
 TWEAK_NAME       = YouTubePlusRevanced
