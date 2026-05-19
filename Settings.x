@@ -614,7 +614,7 @@ static NSString *GetCacheSize() {
             [gonRows addObject:[item switchItemWithTitle:@"Enable Gonerino"
                 titleDescription:@"Block channels and videos from feed"
                 accessibilityIdentifier:@"YTPlusSectionItem"
-                switchOn:[[NSUserDefaults standardUserDefaults] objectForKey:@"GonerinoEnabled"] == nil ? YES : [[NSUserDefaults standardUserDefaults] boolForKey:@"GonerinoEnabled"]
+                switchOn:[[NSUserDefaults standardUserDefaults] objectForKey:@"GonerinoEnabled"] == nil ? NO : [[NSUserDefaults standardUserDefaults] boolForKey:@"GonerinoEnabled"]
                 switchBlock:^BOOL(YTSettingsCell *c, BOOL enabled) {
                     [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"GonerinoEnabled"];
                     return YES;
@@ -622,7 +622,7 @@ static NSString *GetCacheSize() {
             [gonRows addObject:[item switchItemWithTitle:@"Show Nav Button"
                 titleDescription:@"Show Gonerino toggle button in navigation bar"
                 accessibilityIdentifier:@"YTPlusSectionItem"
-                switchOn:[[NSUserDefaults standardUserDefaults] objectForKey:@"GonerinoShowButton"] == nil ? YES : [[NSUserDefaults standardUserDefaults] boolForKey:@"GonerinoShowButton"]
+                switchOn:[[NSUserDefaults standardUserDefaults] objectForKey:@"GonerinoShowButton"] == nil ? NO : [[NSUserDefaults standardUserDefaults] boolForKey:@"GonerinoShowButton"]
                 switchBlock:^BOOL(YTSettingsCell *c, BOOL enabled) {
                     [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"GonerinoShowButton"];
                     return YES;
@@ -852,6 +852,8 @@ static NSString *GetCacheSize() {
                 [self switchWithTitle:@"NoPlayerRemixButton" key:@"noPlayerRemixButton"],
                 [self switchWithTitle:@"NoPlayerClipButton" key:@"noPlayerClipButton"],
                 [self switchWithTitle:@"DownloadManager" key:@"downloadManager"],
+                [self switchWithTitle:@"SaveToPhotos" key:@"downloadSaveToPhotos"],
+                [self switchWithTitle:@"PreferDRCAudio" key:@"downloadPreferDRC"],
                 [self switchWithTitle:@"NoPlayerDownloadButton" key:@"noPlayerDownloadButton"],
                 [self switchWithTitle:@"NoHints" key:@"noHints"],
                 [self brokenSwitchWithTitle:@"NoFreeZoom ⚠️" key:@"noFreeZoom"],
