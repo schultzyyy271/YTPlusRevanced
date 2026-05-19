@@ -16,6 +16,13 @@
 // Forward declarations for download manager (defined later in file)
 static __weak YTPlayerViewController *YTPlusCurrentPlayerVC;
 static void YTPlusShowDownloadMgr(YTPlayerViewController *player, UIViewController *presenter, UIView *sender);
+static UIViewController *YTPlusPresenter(UIView *sender, YTPlayerViewController *player);
+static YTPlayerViewController *YTPlusPlayerFromVC(UIViewController *vc);
+
+// Private API category for view controller lookup
+@interface UIView (YTPlusPrivate)
+- (UIViewController *)_viewControllerForAncestor;
+@end
 
 static UIImage *YTPImageNamed(NSString *imageName) {
     return [UIImage imageNamed:imageName inBundle:[NSBundle mainBundle] compatibleWithTraitCollection:nil];
@@ -1581,6 +1588,9 @@ static void genImageFromLayer(CALayer *layer, UIColor *bgColor, void (^completio
 - (NSArray *)adaptiveFormatsArray;
 @end
 
+@interface YTIFormatStream : NSObject
+@end
+
 @interface YTIFormatStream (YTPlusDownload)
 - (NSString *)mimeType;
 - (BOOL)hasContentLength;
@@ -1595,10 +1605,27 @@ static void genImageFromLayer(CALayer *layer, UIColor *bgColor, void (^completio
 @end
 
 static UIImage *YTPlusIconImage(NSInteger iconType) {
-    YTIIcon *icon = [%c(YTIIcon) new];
-    icon.iconType = iconType;
-    UIImage *image = [icon iconImageWithColor:[UIColor labelColor]];
-    return [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    // Use SF Symbols as fallback since iconImageWithColor: may not exist
+    switch (iconType) {
+        case 137: return [UIImage systemImageNamed:@"arrow.down.circle"] ?: [UIImage new]; // download
+        case 251: return [UIImage systemImageNamed:@"music.note"] ?: [UIImage new]; // audio
+        case 371: return [UIImage systemImageNamed:@"captions.bubble"] ?: [UIImage new]; // captions
+        case 574: return [UIImage systemImageNamed:@"photo"] ?: [UIImage new]; // thumbnail
+        case 610: return [UIImage systemImageNamed:@"square.and.arrow.up"] ?: [UIImage new]; // share
+        default: {
+            YTIIcon *icon = [%c(YTIIcon) new];
+            icon.iconType = iconType;
+            if ([icon respondsToSelector:@selector(iconImageWithColor:)]) {
+                UIImage *image = [icon iconImageWithColor:[UIColor labelColor]];
+                return [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] ?: [UIImage new];
+            }
+            if ([icon respondsToSelector:@selector(iconImage)]) {
+                UIImage *image = [icon iconImage];
+                return [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] ?: [UIImage new];
+            }
+            return [UIImage systemImageNamed:@"ellipsis.circle"] ?: [UIImage new];
+        }
+    }
 }
 
 @interface YTPlusMenuItem : NSObject
