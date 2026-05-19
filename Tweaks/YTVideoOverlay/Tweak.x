@@ -73,7 +73,7 @@ static YTFrostedGlassView *createFrostedGlassView() {
     }
 }
 
-static void maybeApplyToView(YTFrostedGlassView *frostedGlassView, UIView *view) {
+__attribute__((unused)) static void maybeApplyToView(YTFrostedGlassView *frostedGlassView, UIView *view) {
     if ([frostedGlassView respondsToSelector:@selector(maybeApplyToView:)]) {
         [frostedGlassView maybeApplyToView:view];
         return;
