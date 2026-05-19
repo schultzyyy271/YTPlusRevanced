@@ -24,8 +24,8 @@ else ifeq ($(ROOTHIDE),1)
 export THEOS_PACKAGE_SCHEME = roothide
 endif
 
-# ── Subprojects (iSponsorBlock builds as its own dylib; others compiled inline) ──
-SUBPROJECTS += Tweaks/iSponsorBlock
+# ── Subprojects ───────────────────────────────────────────────────────────────
+# (iSponsorBlock is now compiled inline — no subprojects needed)
 
 include $(THEOS)/makefiles/common.mk
 
@@ -69,13 +69,25 @@ $(TWEAK_NAME)_FILES = \
 	Tweaks/YTweaks/Tweak.x \
 	Tweaks/YTweaks/Settings.x \
 	Tweaks/YouGroupSettings/Tweak.x \
-	Tweaks/YouQuality/Tweak.x
+	Tweaks/YouQuality/Tweak.x \
+	Tweaks/iSponsorBlock/iSponsorBlock.xm \
+	Tweaks/iSponsorBlock/MBProgressHUD.m \
+	Tweaks/iSponsorBlock/SponsorBlockRequest.m \
+	Tweaks/iSponsorBlock/SponsorBlockSettingsController.m \
+	Tweaks/iSponsorBlock/SponsorBlockViewController.m \
+	Tweaks/iSponsorBlock/SponsorSegment.m \
+	Tweaks/iSponsorBlock/SponsorSegmentView.m
 
 $(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation SystemConfiguration Photos AVKit VideoToolbox CoreMedia
 $(TWEAK_NAME)_CFLAGS = \
 	-fobjc-arc \
 	-DTWEAK_VERSION=$(PACKAGE_VERSION) \
 	-DSIDELOAD=1 \
+	-Wno-deprecated-declarations \
+	-Wno-module-import-in-extern-c \
+	-Wno-unknown-warning-option \
+	-Wno-vla-cxx-extension \
+	-Wno-vla-extension \
 	-ITweaks/DontEatMyContent \
 	-ITweaks/YTVideoOverlay \
 	-ITweaks/ReturnYouTubeDislike \
@@ -84,15 +96,12 @@ $(TWEAK_NAME)_CFLAGS = \
 	-ITweaks/Gonerino \
 	-ITweaks/Gonerino/headers \
 	-ITweaks/Gonerino/sources \
-	-ITweaks/YTweaks
+	-ITweaks/YTweaks \
+	-ITweaks/iSponsorBlock \
+	-ITweaks/iSponsorBlock/Headers
 $(TWEAK_NAME)_LDFLAGS = -Wl,-undefined,dynamic_lookup -Wl,-no_implicit_dylibs
 
-# ── iSponsorBlock dylib + bundle injection ────────────────────────────────────
-ifeq ($(FINALPACKAGE),1)
-$(TWEAK_NAME)_INJECT_DYLIBS = Tweaks/iSponsorBlock/.theos/obj/iSponsorBlock.dylib
-else
-$(TWEAK_NAME)_INJECT_DYLIBS = Tweaks/iSponsorBlock/.theos/obj/debug/iSponsorBlock.dylib
-endif
+# ── iSponsorBlock is now compiled inline — no dylib injection needed ───────────
 
 # ── Embed all tweak bundles ───────────────────────────────────────────────────
 # Same comment-in-continuation hazard applies here.
@@ -108,7 +117,6 @@ $(TWEAK_NAME)_EMBED_BUNDLES = \
 	Tweaks/YouGroupSettings/layout/Library/Application\ Support/YouGroupSettings.bundle
 
 include $(THEOS_MAKE_PATH)/tweak.mk
-include $(THEOS_MAKE_PATH)/aggregate.mk
 
 # ── IPA injection (theos-jailed) ──────────────────────────────────────────────
 REMOVE_EXTENSIONS = 1
