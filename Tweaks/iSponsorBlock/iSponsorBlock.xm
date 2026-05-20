@@ -91,7 +91,7 @@ void currentVideoTimeDidChange(YTPlayerViewController *self, YTSingleVideoTime *
     if (self.skipSegments.count > 0 && [overlayView isKindOfClass:%c(YTMainAppVideoPlayerOverlayView)] && ![kWhitelistedChannels containsObject:self.channelID]) {
         if (kShowModifiedTime) {
             UILabel *durationLabel = overlayView.playerBar.durationLabel;
-            if (![durationLabel.text containsString:modifiedTimeString]) durationLabel.text = [NSString stringWithFormat:@"%@ (%@)", durationLabel.text, modifiedTimeString];
+            if (modifiedTimeString && ![durationLabel.text containsString:modifiedTimeString]) durationLabel.text = [NSString stringWithFormat:@"%@ (%@)", durationLabel.text ?: @"", modifiedTimeString];
             [durationLabel sizeToFit];
         }
         

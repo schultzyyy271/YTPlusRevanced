@@ -16,6 +16,7 @@
 // Forward declarations for download manager (defined later in file)
 static __weak YTPlayerViewController *YTPlusCurrentPlayerVC;
 static void YTPlusShowDownloadMgr(YTPlayerViewController *player, UIViewController *presenter, UIView *sender);
+void YTPlusConfigureDownloadBtn(_ASDisplayView *view);
 static UIViewController *YTPlusPresenter(UIView *sender, YTPlayerViewController *player);
 static YTPlayerViewController *YTPlusPlayerFromVC(UIViewController *vc);
 
@@ -265,9 +266,8 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
         dlBtn = [UIButton buttonWithType:UIButtonTypeCustom];
         dlBtn.tag = kShortsDownloadTag;
 
-        // Use SF Symbol for download arrow
-        UIImage *icon = [UIImage systemImageNamed:@"arrow.down.circle.fill"
-            withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:28 weight:UIImageSymbolWeightMedium]];
+        UIImage *icon = [UIImage systemImageNamed:@"arrow.down.circle"
+            withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:24 weight:UIImageSymbolWeightRegular]];
         [dlBtn setImage:[icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
         dlBtn.tintColor = [UIColor whiteColor];
         dlBtn.layer.shadowColor = [UIColor blackColor].CGColor;
@@ -278,11 +278,55 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
         [dlBtn addTarget:self action:@selector(ytpShortsDownloadTapped:) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:dlBtn];
     }
-    // Position: right side, above the action buttons area
-    CGFloat btnSize = 44.0;
-    CGFloat rightMargin = 12.0;
-    CGFloat topOffset = 80.0; // below status bar area
-    dlBtn.frame = CGRectMake(self.bounds.size.width - btnSize - rightMargin, topOffset, btnSize, btnSize);
+
+    // Deep recursive search for the like button in the view hierarchy
+    __block UIView *likeBtn = nil;
+    __block UIView *dislikeBtn = nil;
+    __block void (^deepSearch)(UIView *, int);
+    __weak __block void (^weakSearch)(UIView *, int);
+    deepSearch = ^(UIView *view, int depth) {
+        if (depth > 8 || (likeBtn && dislikeBtn)) return;
+        for (UIView *sub in view.subviews) {
+            NSString *aid = sub.accessibilityIdentifier;
+            if ([aid isEqualToString:@"id.reel_like_button"]) likeBtn = sub;
+            else if ([aid isEqualToString:@"id.reel_dislike_button"]) dislikeBtn = sub;
+            if (likeBtn && dislikeBtn) return;
+            if (weakSearch) weakSearch(sub, depth + 1);
+        }
+    };
+    weakSearch = deepSearch;
+    deepSearch(self, 0);
+
+    CGFloat btnSize = 40.0;
+    if (likeBtn && dislikeBtn && !CGRectIsEmpty(likeBtn.frame) && !CGRectIsEmpty(dislikeBtn.frame)) {
+        CGRect likeFrame = [self convertRect:likeBtn.bounds fromView:likeBtn];
+        CGRect dislikeFrame = [self convertRect:dislikeBtn.bounds fromView:dislikeBtn];
+
+        CGFloat likeCenterY = CGRectGetMidY(likeFrame);
+        CGFloat dislikeCenterY = CGRectGetMidY(dislikeFrame);
+        CGFloat step = dislikeCenterY - likeCenterY;
+        CGFloat centerX = CGRectGetMidX(likeFrame);
+
+        // Place one step above like button center, same X
+        dlBtn.frame = CGRectMake(centerX - btnSize / 2, likeCenterY - step - btnSize / 2, btnSize, btnSize);
+    } else if (likeBtn && !CGRectIsEmpty(likeBtn.frame)) {
+        CGRect likeFrame = [self convertRect:likeBtn.bounds fromView:likeBtn];
+        CGFloat centerX = CGRectGetMidX(likeFrame);
+        dlBtn.frame = CGRectMake(centerX - btnSize / 2, likeFrame.origin.y - btnSize - 4.0, btnSize, btnSize);
+    } else {
+        // Fallback: use actionBarWidth to position on the right side
+        CGFloat abWidth = 0;
+        SEL abSel = @selector(actionBarWidth);
+        if ([self respondsToSelector:abSel]) {
+            abWidth = ((CGFloat (*)(id, SEL))objc_msgSend)((id)self, abSel);
+        }
+        if (abWidth <= 0) abWidth = 52.0;
+        CGFloat centerX = self.bounds.size.width - abWidth / 2.0;
+        // Position at roughly 33% from top - just above where the like button typically sits
+        CGFloat topY = self.bounds.size.height * 0.33;
+        dlBtn.frame = CGRectMake(centerX - btnSize / 2, topY, btnSize, btnSize);
+    }
+    dlBtn.hidden = NO;
 }
 
 %new
@@ -1417,6 +1461,13 @@ static void genImageFromLayer(CALayer *layer, UIColor *bgColor, void (^completio
     }
 }
 
+- (void)didMoveToWindow {
+    %orig;
+    // Configure our download button on the YouTube download button view
+    YTPlusConfigureDownloadBtn(self);
+    // Keep the button visible — our tap gesture intercepts it for the download manager
+}
+
 %new
 - (void)savePFP:(UILongPressGestureRecognizer *)sender {
     if (sender.state != UIGestureRecognizerStateBegan) return;
@@ -1611,6 +1662,7 @@ static UIImage *YTPlusIconImage(NSInteger iconType) {
 @property (nonatomic, copy) NSString *languageCode;
 @property (nonatomic, copy) NSString *languageName;
 @property (nonatomic, assign) BOOL drcAudio;
+@property (nonatomic, assign) BOOL isDefaultAudio;
 @end
 
 @implementation YTPlusMediaFormat
@@ -2828,16 +2880,36 @@ static YTPlusMediaFormat *YTPlusMediaFormatFromStream(id stream, BOOL video) {
     }
     if (format.qualityLabel.length == 0 && !video) format.qualityLabel = @"Audio";
     if (!video) {
+        // Get the audioTrack sub-object first — it contains language and default info
+        id audioTrackObj = YTPlusObjectFromSel(stream, @selector(audioTrack));
+        if (!audioTrackObj) audioTrackObj = YTPlusObjectFromSel(formatStream, @selector(audioTrack));
+
+        // Extract language code from multiple sources
         NSString *languageCode = YTPlusStringFromSel(stream, @selector(languageCode));
         if (languageCode.length == 0) languageCode = YTPlusStringFromSel(formatStream, @selector(languageCode));
         if (languageCode.length == 0) languageCode = YTPlusStringFromSel(stream, @selector(language));
         if (languageCode.length == 0) languageCode = YTPlusStringFromSel(formatStream, @selector(language));
+        // Try audioTrack object's ID — YouTube uses format "en.1", "ja.1", "en.drc.1"
+        if (languageCode.length == 0 && audioTrackObj) {
+            NSString *trackID = YTPlusStringFromSel(audioTrackObj, @selector(id));
+            if (trackID.length == 0) trackID = YTPlusStringFromSel(audioTrackObj, @selector(identifier));
+            if (trackID.length == 0) trackID = YTPlusStringFromSel(audioTrackObj, @selector(audioTrackId));
+            if (trackID.length >= 2) {
+                // Extract language prefix from track ID like "en.1" -> "en"
+                NSString *prefix = [[trackID componentsSeparatedByString:@"."] firstObject];
+                if (prefix.length >= 2 && prefix.length <= 5) languageCode = prefix;
+            }
+        }
         format.languageCode = languageCode;
 
         NSString *languageName = YTPlusStringFromSel(stream, @selector(languageName));
         if (languageName.length == 0) languageName = YTPlusStringFromSel(formatStream, @selector(languageName));
         if (languageName.length == 0) languageName = YTPlusStringFromSel(stream, @selector(displayName));
         if (languageName.length == 0) languageName = YTPlusStringFromSel(formatStream, @selector(displayName));
+        // Try audioTrack object's displayName (e.g. "English", "Japanese")
+        if (languageName.length == 0 && audioTrackObj) {
+            languageName = YTPlusStringFromSel(audioTrackObj, @selector(displayName));
+        }
         format.languageName = languageName.length ? languageName : languageCode;
 
         NSMutableArray *audioTraits = [NSMutableArray array];
@@ -2854,6 +2926,17 @@ static YTPlusMediaFormat *YTPlusMediaFormatFromStream(id stream, BOOL video) {
             if (value.length) [audioTraits addObject:value];
         }
         format.drcAudio = [[audioTraits componentsJoinedByString:@" "] localizedCaseInsensitiveContainsString:@"drc"];
+
+        // Detect default/original audio track
+        NSString *traitsJoined = [audioTraits componentsJoinedByString:@" "];
+        BOOL isOriginal = [traitsJoined localizedCaseInsensitiveContainsString:@"original"];
+        BOOL isDefault = YTPlusBoolFromSel(stream, @selector(audioIsDefault)) || YTPlusBoolFromSel(formatStream, @selector(audioIsDefault));
+        if (audioTrackObj && [audioTrackObj respondsToSelector:@selector(audioIsDefault)]) {
+            isDefault = isDefault || YTPlusBoolFromSel(audioTrackObj, @selector(audioIsDefault));
+        }
+        // No explicit language and no track type = single-language video, treat as default
+        if (!isDefault && !isOriginal && format.languageCode.length == 0) isDefault = YES;
+        format.isDefaultAudio = isDefault || isOriginal;
     }
     if (YTPlusBoolFromSel(stream, @selector(hasContentLength)) || [stream respondsToSelector:@selector(contentLength)])
         format.contentLength = YTPlusULLFromSel(stream, @selector(contentLength));
@@ -2945,6 +3028,10 @@ static NSArray <YTPlusMediaFormat *> *YTPlusFormatsForPlayer(YTPlayerViewControl
         BOOL rightMP4 = YTPlusIsMP4Family(right);
         if (leftMP4 != rightMP4) return leftMP4 ? NSOrderedAscending : NSOrderedDescending;
         
+        // For audio: prefer the default/original language track
+        if (!video && left.isDefaultAudio != right.isDefaultAudio)
+            return left.isDefaultAudio ? NSOrderedAscending : NSOrderedDescending;
+
         if (!video && ytpBool(@"downloadPreferDRC") && left.drcAudio != right.drcAudio)
             return left.drcAudio ? NSOrderedAscending : NSOrderedDescending;
         if (left.contentLength != right.contentLength)
@@ -2968,6 +3055,24 @@ static NSArray <YTPlusMediaFormat *> *YTPlusFormatsForPlayer(YTPlayerViewControl
 
 static YTPlusMediaFormat *YTPlusBestAudio(YTPlayerViewController *player) {
     NSArray <YTPlusMediaFormat *> *audioFormats = YTPlusFormatsForPlayer(player, NO);
+    if (audioFormats.count <= 1) return audioFormats.firstObject;
+
+    // Try to match the user's preferred language
+    NSArray *preferredLanguages = [NSLocale preferredLanguages];
+    for (NSString *preferred in preferredLanguages) {
+        // preferred is like "en-AU", "en", "ja-JP" etc
+        NSString *langPrefix = [[preferred componentsSeparatedByString:@"-"] firstObject].lowercaseString;
+        for (YTPlusMediaFormat *format in audioFormats) {
+            NSString *fmtLang = format.languageCode.lowercaseString;
+            if (fmtLang.length && [fmtLang hasPrefix:langPrefix]) return format;
+        }
+    }
+
+    // Fallback: prefer tracks with "original" in their traits or name
+    for (YTPlusMediaFormat *format in audioFormats) {
+        if (format.isDefaultAudio) return format;
+    }
+
     return audioFormats.firstObject;
 }
 
@@ -3611,8 +3716,8 @@ static void YTPlusPresentMenu(NSString *title, NSArray <YTPlusMenuItem *> *items
         });
     } else {
         [self cleanupTemporaryFiles];
-        YTPlusSendToast(isVideo ? @"Download completed" : @"Audio saved", presenter);
-        if (!isVideo || (isVideo && !canSaveToPhotos)) YTPlusShareFile(fileURL, presenter);
+        // Always present the share sheet so users can choose where to save
+        YTPlusShareFile(fileURL, presenter);
     }
 }
 
