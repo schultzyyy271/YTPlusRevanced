@@ -16,6 +16,7 @@
 // Forward declarations for download manager (defined later in file)
 static __weak YTPlayerViewController *YTPlusCurrentPlayerVC;
 static void YTPlusShowDownloadMgr(YTPlayerViewController *player, UIViewController *presenter, UIView *sender);
+void YTPlusConfigureDownloadBtn(_ASDisplayView *view);
 static UIViewController *YTPlusPresenter(UIView *sender, YTPlayerViewController *player);
 static YTPlayerViewController *YTPlusPlayerFromVC(UIViewController *vc);
 
@@ -265,9 +266,8 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
         dlBtn = [UIButton buttonWithType:UIButtonTypeCustom];
         dlBtn.tag = kShortsDownloadTag;
 
-        // Use SF Symbol for download arrow
-        UIImage *icon = [UIImage systemImageNamed:@"arrow.down.circle.fill"
-            withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:28 weight:UIImageSymbolWeightMedium]];
+        UIImage *icon = [UIImage systemImageNamed:@"arrow.down.circle"
+            withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:24 weight:UIImageSymbolWeightRegular]];
         [dlBtn setImage:[icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
         dlBtn.tintColor = [UIColor whiteColor];
         dlBtn.layer.shadowColor = [UIColor blackColor].CGColor;
@@ -278,11 +278,37 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
         [dlBtn addTarget:self action:@selector(ytpShortsDownloadTapped:) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:dlBtn];
     }
-    // Position: right side, above the action buttons area
+
+    // Find the like button and position above it
+    UIView *likeBtn = nil;
+    for (UIView *sub in self.subviews) {
+        if ([sub.accessibilityIdentifier isEqualToString:@"id.reel_like_button"]) {
+            likeBtn = sub;
+            break;
+        }
+        // Also check nested _ASDisplayView subviews
+        for (UIView *inner in sub.subviews) {
+            if ([inner.accessibilityIdentifier isEqualToString:@"id.reel_like_button"]) {
+                likeBtn = inner;
+                break;
+            }
+        }
+        if (likeBtn) break;
+    }
+
     CGFloat btnSize = 44.0;
-    CGFloat rightMargin = 12.0;
-    CGFloat topOffset = 80.0; // below status bar area
-    dlBtn.frame = CGRectMake(self.bounds.size.width - btnSize - rightMargin, topOffset, btnSize, btnSize);
+    if (likeBtn && !CGRectIsEmpty(likeBtn.frame)) {
+        // Position directly above the like button, same X center
+        CGRect likeFrame = [self convertRect:likeBtn.bounds fromView:likeBtn];
+        CGFloat centerX = CGRectGetMidX(likeFrame);
+        CGFloat aboveLike = likeFrame.origin.y - btnSize - 8.0;
+        dlBtn.frame = CGRectMake(centerX - btnSize/2, aboveLike, btnSize, btnSize);
+    } else {
+        // Fallback: right side, above typical action bar area
+        CGFloat rightMargin = 16.0;
+        dlBtn.frame = CGRectMake(self.bounds.size.width - btnSize - rightMargin, self.bounds.size.height * 0.35, btnSize, btnSize);
+    }
+    dlBtn.hidden = NO;
 }
 
 %new
@@ -1415,6 +1441,14 @@ static void genImageFromLayer(CALayer *layer, UIColor *bgColor, void (^completio
             break;
         }
     }
+}
+
+- (void)didMoveToWindow {
+    %orig;
+    // Configure our download button on the YouTube download button view
+    YTPlusConfigureDownloadBtn(self);
+    // Hide YouTube's premium download button when our download manager is active
+    if (ytpBool(@"downloadManager") && [self.accessibilityIdentifier isEqualToString:@"id.ui.add_to.offline.button"]) self.hidden = YES;
 }
 
 %new
