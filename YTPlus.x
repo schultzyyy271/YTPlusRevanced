@@ -2891,7 +2891,8 @@ static YTPlusMediaFormat *YTPlusMediaFormatFromStream(id stream, BOOL video) {
         if (languageCode.length == 0) languageCode = YTPlusStringFromSel(formatStream, @selector(language));
         // Try audioTrack object's ID — YouTube uses format "en.1", "ja.1", "en.drc.1"
         if (languageCode.length == 0 && audioTrackObj) {
-            NSString *trackID = YTPlusStringFromSel(audioTrackObj, @selector(id));
+            NSString *trackID = YTPlusStringFromSel(audioTrackObj, @selector(id_p));
+            if (!trackID.length) trackID = YTPlusStringFromSel(audioTrackObj, @selector(id));
             if (trackID.length == 0) trackID = YTPlusStringFromSel(audioTrackObj, @selector(identifier));
             if (trackID.length == 0) trackID = YTPlusStringFromSel(audioTrackObj, @selector(audioTrackId));
             if (trackID.length >= 2) {
@@ -3096,8 +3097,8 @@ static YTPlusMediaFormat *YTPlusBestAudio(YTPlayerViewController *player) {
 
         if (selectedTrack) {
             // Get the track ID (e.g. "en.1", "ja.1") and displayName (e.g. "English")
-            NSString *trackID = YTPlusStringFromSel(selectedTrack, @selector(id));
-            if (!trackID.length) trackID = YTPlusStringFromSel(selectedTrack, @selector(identifier));
+            NSString *trackID = YTPlusStringFromSel(selectedTrack, @selector(id_p));
+            if (!trackID.length) trackID = YTPlusStringFromSel(selectedTrack, @selector(id));
             NSString *trackName = YTPlusStringFromSel(selectedTrack, @selector(displayName));
 
             // Match by track ID prefix (language code)
