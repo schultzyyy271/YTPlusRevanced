@@ -282,16 +282,19 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
     // Deep recursive search for the like button in the view hierarchy
     __block UIView *likeBtn = nil;
     __block UIView *dislikeBtn = nil;
-    void (^__block deepSearch)(UIView *, int) = ^(UIView *view, int depth) {
+    __block void (^deepSearch)(UIView *, int);
+    __weak __block void (^weakSearch)(UIView *, int);
+    deepSearch = ^(UIView *view, int depth) {
         if (depth > 8 || (likeBtn && dislikeBtn)) return;
         for (UIView *sub in view.subviews) {
             NSString *aid = sub.accessibilityIdentifier;
             if ([aid isEqualToString:@"id.reel_like_button"]) likeBtn = sub;
             else if ([aid isEqualToString:@"id.reel_dislike_button"]) dislikeBtn = sub;
             if (likeBtn && dislikeBtn) return;
-            deepSearch(sub, depth + 1);
+            if (weakSearch) weakSearch(sub, depth + 1);
         }
     };
+    weakSearch = deepSearch;
     deepSearch(self, 0);
 
     CGFloat btnSize = 40.0;
@@ -313,8 +316,9 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
     } else {
         // Fallback: use actionBarWidth to position on the right side
         CGFloat abWidth = 0;
-        if ([self respondsToSelector:@selector(actionBarWidth)]) {
-            abWidth = [(id)self actionBarWidth];
+        SEL abSel = @selector(actionBarWidth);
+        if ([self respondsToSelector:abSel]) {
+            abWidth = ((CGFloat (*)(id, SEL))objc_msgSend)((id)self, abSel);
         }
         if (abWidth <= 0) abWidth = 52.0;
         CGFloat centerX = self.bounds.size.width - abWidth / 2.0;
