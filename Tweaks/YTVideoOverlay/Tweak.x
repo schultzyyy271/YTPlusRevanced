@@ -156,7 +156,7 @@ static YTQTMButton *createButtonBottom(BOOL isText, YTInlinePlayerBarContainerVi
 - (void)updateTopRightButtonAvailability {
     %orig;
     YTMainAppVideoPlayerOverlayView *v = [self videoPlayerOverlayView];
-    YTMainAppControlsOverlayView *c = [v respondsToSelector:@selector(controlsOverlayView)] ? [v controlsOverlayView] : [v valueForKey:@"_controlsOverlayView"];
+    YTMainAppControlsOverlayView *c = [v valueForKey:@"controlsOverlayView"];
     for (NSString *name in topButtons)
         c.overlayButtons[name].hidden = !UseTopButton(name);
     [c setNeedsLayout];
