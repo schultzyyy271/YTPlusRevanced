@@ -155,11 +155,15 @@ static YTQTMButton *createButtonBottom(BOOL isText, YTInlinePlayerBarContainerVi
 
 - (void)updateTopRightButtonAvailability {
     %orig;
-    YTMainAppVideoPlayerOverlayView *v = [self videoPlayerOverlayView];
-    YTMainAppControlsOverlayView *c = [v valueForKey:@"controlsOverlayView"];
-    for (NSString *name in topButtons)
-        c.overlayButtons[name].hidden = !UseTopButton(name);
-    [c setNeedsLayout];
+    @try {
+        YTMainAppVideoPlayerOverlayView *v = [self videoPlayerOverlayView];
+        YTMainAppControlsOverlayView *c = [v valueForKey:@"controlsOverlayView"];
+        if (c && [c respondsToSelector:@selector(overlayButtons)]) {
+            for (NSString *name in topButtons)
+                c.overlayButtons[name].hidden = !UseTopButton(name);
+            [c setNeedsLayout];
+        }
+    } @catch (id ex) {}
 }
 
 %end
@@ -208,8 +212,12 @@ static void sortButtons(NSMutableArray <NSString *> *buttons) {
 
 - (id)initWithDelegate:(id)delegate {
     self = %orig;
-    self.overlayButtons = createOverlayButtons(YES, self);
-    sortButtons(topButtons);
+    @try {
+        self.overlayButtons = createOverlayButtons(YES, self);
+        sortButtons(topButtons);
+    } @catch (id ex) {
+        NSLog(@"[YTVideoOverlay] initWithDelegate error: %@", ex);
+    }
     return self;
 }
 
@@ -253,8 +261,12 @@ static void sortButtons(NSMutableArray <NSString *> *buttons) {
 
 - (id)init {
     self = %orig;
-    self.overlayButtons = createOverlayButtons(NO, self);
-    sortButtons(bottomButtons);
+    @try {
+        self.overlayButtons = createOverlayButtons(NO, self);
+        sortButtons(bottomButtons);
+    } @catch (id ex) {
+        NSLog(@"[YTVideoOverlay] init error: %@", ex);
+    }
     return self;
 }
 
