@@ -279,32 +279,48 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
         [self addSubview:dlBtn];
     }
 
-    // Find the like button and position above it
+    // Find the like button and dislike button to measure actual spacing
     UIView *likeBtn = nil;
+    UIView *dislikeBtn = nil;
     for (UIView *sub in self.subviews) {
         if ([sub.accessibilityIdentifier isEqualToString:@"id.reel_like_button"]) {
             likeBtn = sub;
-            break;
+        }
+        if ([sub.accessibilityIdentifier isEqualToString:@"id.reel_dislike_button"]) {
+            dislikeBtn = sub;
         }
         // Also check nested _ASDisplayView subviews
         for (UIView *inner in sub.subviews) {
             if ([inner.accessibilityIdentifier isEqualToString:@"id.reel_like_button"]) {
                 likeBtn = inner;
-                break;
+            }
+            if ([inner.accessibilityIdentifier isEqualToString:@"id.reel_dislike_button"]) {
+                dislikeBtn = inner;
             }
         }
-        if (likeBtn) break;
+        if (likeBtn && dislikeBtn) break;
     }
 
-    CGFloat btnSize = 44.0;
     if (likeBtn && !CGRectIsEmpty(likeBtn.frame)) {
-        // Position directly above the like button, same X center
         CGRect likeFrame = [self convertRect:likeBtn.bounds fromView:likeBtn];
         CGFloat centerX = CGRectGetMidX(likeFrame);
-        CGFloat aboveLike = likeFrame.origin.y - btnSize - 8.0;
-        dlBtn.frame = CGRectMake(centerX - btnSize/2, aboveLike, btnSize, btnSize);
+        CGFloat btnHeight = likeFrame.size.height;
+
+        // Calculate the gap between buttons using like→dislike distance
+        CGFloat gap = 0;
+        if (dislikeBtn && !CGRectIsEmpty(dislikeBtn.frame)) {
+            CGRect dislikeFrame = [self convertRect:dislikeBtn.bounds fromView:dislikeBtn];
+            gap = dislikeFrame.origin.y - CGRectGetMaxY(likeFrame);
+        } else {
+            gap = 8.0; // fallback
+        }
+
+        // Position symmetrically above the like button using the same gap
+        CGFloat aboveLike = likeFrame.origin.y - gap - btnHeight;
+        dlBtn.frame = CGRectMake(centerX - btnHeight/2, aboveLike, btnHeight, btnHeight);
     } else {
         // Fallback: right side, above typical action bar area
+        CGFloat btnSize = 44.0;
         CGFloat rightMargin = 16.0;
         dlBtn.frame = CGRectMake(self.bounds.size.width - btnSize - rightMargin, self.bounds.size.height * 0.35, btnSize, btnSize);
     }
@@ -1447,8 +1463,7 @@ static void genImageFromLayer(CALayer *layer, UIColor *bgColor, void (^completio
     %orig;
     // Configure our download button on the YouTube download button view
     YTPlusConfigureDownloadBtn(self);
-    // Hide YouTube's premium download button when our download manager is active
-    if (ytpBool(@"downloadManager") && [self.accessibilityIdentifier isEqualToString:@"id.ui.add_to.offline.button"]) self.hidden = YES;
+    // Keep the button visible — our tap gesture intercepts it for the download manager
 }
 
 %new
@@ -3645,8 +3660,8 @@ static void YTPlusPresentMenu(NSString *title, NSArray <YTPlusMenuItem *> *items
         });
     } else {
         [self cleanupTemporaryFiles];
-        YTPlusSendToast(isVideo ? @"Download completed" : @"Audio saved", presenter);
-        if (!isVideo || (isVideo && !canSaveToPhotos)) YTPlusShareFile(fileURL, presenter);
+        // Always present the share sheet so users can choose where to save
+        YTPlusShareFile(fileURL, presenter);
     }
 }
 
