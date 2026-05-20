@@ -279,55 +279,48 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
         [self addSubview:dlBtn];
     }
 
-    // Find the like button and dislike button to measure actual spacing
-    UIView *likeBtn = nil;
-    UIView *dislikeBtn = nil;
-    for (UIView *sub in self.subviews) {
-        if ([sub.accessibilityIdentifier isEqualToString:@"id.reel_like_button"]) {
-            likeBtn = sub;
+    // Deep recursive search for the like button in the view hierarchy
+    __block UIView *likeBtn = nil;
+    __block UIView *dislikeBtn = nil;
+    void (^__block deepSearch)(UIView *, int) = ^(UIView *view, int depth) {
+        if (depth > 8 || (likeBtn && dislikeBtn)) return;
+        for (UIView *sub in view.subviews) {
+            NSString *aid = sub.accessibilityIdentifier;
+            if ([aid isEqualToString:@"id.reel_like_button"]) likeBtn = sub;
+            else if ([aid isEqualToString:@"id.reel_dislike_button"]) dislikeBtn = sub;
+            if (likeBtn && dislikeBtn) return;
+            deepSearch(sub, depth + 1);
         }
-        if ([sub.accessibilityIdentifier isEqualToString:@"id.reel_dislike_button"]) {
-            dislikeBtn = sub;
-        }
-        // Also check nested _ASDisplayView subviews
-        for (UIView *inner in sub.subviews) {
-            if ([inner.accessibilityIdentifier isEqualToString:@"id.reel_like_button"]) {
-                likeBtn = inner;
-            }
-            if ([inner.accessibilityIdentifier isEqualToString:@"id.reel_dislike_button"]) {
-                dislikeBtn = inner;
-            }
-        }
-        if (likeBtn && dislikeBtn) break;
-    }
+    };
+    deepSearch(self, 0);
 
+    CGFloat btnSize = 40.0;
     if (likeBtn && dislikeBtn && !CGRectIsEmpty(likeBtn.frame) && !CGRectIsEmpty(dislikeBtn.frame)) {
         CGRect likeFrame = [self convertRect:likeBtn.bounds fromView:likeBtn];
         CGRect dislikeFrame = [self convertRect:dislikeBtn.bounds fromView:dislikeBtn];
 
-        // Use center-to-center distance between like and dislike as the step
         CGFloat likeCenterY = CGRectGetMidY(likeFrame);
         CGFloat dislikeCenterY = CGRectGetMidY(dislikeFrame);
         CGFloat step = dislikeCenterY - likeCenterY;
-
-        // Place our button one step above the like button's center
-        CGFloat dlCenterY = likeCenterY - step;
         CGFloat centerX = CGRectGetMidX(likeFrame);
 
-        // Use same width as like button, fixed height for our icon tap target
-        CGFloat btnSize = likeFrame.size.width;
-        dlBtn.frame = CGRectMake(centerX - btnSize / 2, dlCenterY - btnSize / 2, btnSize, btnSize);
+        // Place one step above like button center, same X
+        dlBtn.frame = CGRectMake(centerX - btnSize / 2, likeCenterY - step - btnSize / 2, btnSize, btnSize);
     } else if (likeBtn && !CGRectIsEmpty(likeBtn.frame)) {
-        // Fallback if dislike not found: place above like with a reasonable gap
         CGRect likeFrame = [self convertRect:likeBtn.bounds fromView:likeBtn];
         CGFloat centerX = CGRectGetMidX(likeFrame);
-        CGFloat btnSize = likeFrame.size.width;
         dlBtn.frame = CGRectMake(centerX - btnSize / 2, likeFrame.origin.y - btnSize - 4.0, btnSize, btnSize);
     } else {
-        // Fallback: right side, above typical action bar area
-        CGFloat btnSize = 44.0;
-        CGFloat rightMargin = 16.0;
-        dlBtn.frame = CGRectMake(self.bounds.size.width - btnSize - rightMargin, self.bounds.size.height * 0.35, btnSize, btnSize);
+        // Fallback: use actionBarWidth to position on the right side
+        CGFloat abWidth = 0;
+        if ([self respondsToSelector:@selector(actionBarWidth)]) {
+            abWidth = [(id)self actionBarWidth];
+        }
+        if (abWidth <= 0) abWidth = 52.0;
+        CGFloat centerX = self.bounds.size.width - abWidth / 2.0;
+        // Position at roughly 33% from top - just above where the like button typically sits
+        CGFloat topY = self.bounds.size.height * 0.33;
+        dlBtn.frame = CGRectMake(centerX - btnSize / 2, topY, btnSize, btnSize);
     }
     dlBtn.hidden = NO;
 }
@@ -3041,6 +3034,24 @@ static NSArray <YTPlusMediaFormat *> *YTPlusFormatsForPlayer(YTPlayerViewControl
 
 static YTPlusMediaFormat *YTPlusBestAudio(YTPlayerViewController *player) {
     NSArray <YTPlusMediaFormat *> *audioFormats = YTPlusFormatsForPlayer(player, NO);
+    if (audioFormats.count <= 1) return audioFormats.firstObject;
+
+    // Try to match the user's preferred language
+    NSArray *preferredLanguages = [NSLocale preferredLanguages];
+    for (NSString *preferred in preferredLanguages) {
+        // preferred is like "en-AU", "en", "ja-JP" etc
+        NSString *langPrefix = [[preferred componentsSeparatedByString:@"-"] firstObject].lowercaseString;
+        for (YTPlusMediaFormat *format in audioFormats) {
+            NSString *fmtLang = format.languageCode.lowercaseString;
+            if (fmtLang.length && [fmtLang hasPrefix:langPrefix]) return format;
+        }
+    }
+
+    // Fallback: prefer tracks with "original" in their traits or name
+    for (YTPlusMediaFormat *format in audioFormats) {
+        if (format.isDefaultAudio) return format;
+    }
+
     return audioFormats.firstObject;
 }
 
