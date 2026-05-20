@@ -72,20 +72,6 @@ NSString *getCompactQualityLabel(MLFormat *format) {
     return self;
 }
 
-// initWithDelegate:autoplaySwitchEnabled: removed in 21.16.2 — initWithDelegate: handles it
-#if 0
-- (id)initWithDelegate_DISABLED:(id)delegate autoplaySwitchEnabled:(BOOL)autoplaySwitchEnabled {
-    self = %orig;
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateYouQualityButton:) name:YouQualityUpdateNotification object:nil];
-    setButtonStyle(self.overlayButtons[TweakKey]);
-    return self;
-}
-
-- (void)dealloc {
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:YouQualityUpdateNotification object:nil];
-    %orig;
-}
-
 %new(v@:@)
 - (void)updateYouQualityButton:(id)arg {
     [self.overlayButtons[TweakKey] setTitle:currentQualityLabel forState:UIControlStateNormal];
@@ -98,6 +84,7 @@ NSString *getCompactQualityLabel(MLFormat *format) {
     [self updateYouQualityButton:nil];
 }
 
+// initWithDelegate:autoplaySwitchEnabled: removed in 21.16.2 — initWithDelegate: handles it
 %end
 
 %end
