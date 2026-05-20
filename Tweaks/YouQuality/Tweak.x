@@ -77,6 +77,13 @@ NSString *getCompactQualityLabel(MLFormat *format) {
     [self.overlayButtons[TweakKey] setTitle:currentQualityLabel forState:UIControlStateNormal];
 }
 
+%new(v@:@)
+- (void)didPressYouQuality:(id)arg {
+    YTMainAppVideoPlayerOverlayViewController *c = [self valueForKey:@"_eventsDelegate"];
+    [c didPressVideoQuality:arg];
+    [self updateYouQualityButton:nil];
+}
+
 // initWithDelegate:autoplaySwitchEnabled: removed in 21.16.2 — initWithDelegate: handles it
 %end
 
