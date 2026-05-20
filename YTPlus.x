@@ -301,23 +301,28 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
         if (likeBtn && dislikeBtn) break;
     }
 
-    if (likeBtn && !CGRectIsEmpty(likeBtn.frame)) {
+    if (likeBtn && dislikeBtn && !CGRectIsEmpty(likeBtn.frame) && !CGRectIsEmpty(dislikeBtn.frame)) {
+        CGRect likeFrame = [self convertRect:likeBtn.bounds fromView:likeBtn];
+        CGRect dislikeFrame = [self convertRect:dislikeBtn.bounds fromView:dislikeBtn];
+
+        // Use center-to-center distance between like and dislike as the step
+        CGFloat likeCenterY = CGRectGetMidY(likeFrame);
+        CGFloat dislikeCenterY = CGRectGetMidY(dislikeFrame);
+        CGFloat step = dislikeCenterY - likeCenterY;
+
+        // Place our button one step above the like button's center
+        CGFloat dlCenterY = likeCenterY - step;
+        CGFloat centerX = CGRectGetMidX(likeFrame);
+
+        // Use same width as like button, fixed height for our icon tap target
+        CGFloat btnSize = likeFrame.size.width;
+        dlBtn.frame = CGRectMake(centerX - btnSize / 2, dlCenterY - btnSize / 2, btnSize, btnSize);
+    } else if (likeBtn && !CGRectIsEmpty(likeBtn.frame)) {
+        // Fallback if dislike not found: place above like with a reasonable gap
         CGRect likeFrame = [self convertRect:likeBtn.bounds fromView:likeBtn];
         CGFloat centerX = CGRectGetMidX(likeFrame);
-        CGFloat btnHeight = likeFrame.size.height;
-
-        // Calculate the gap between buttons using like→dislike distance
-        CGFloat gap = 0;
-        if (dislikeBtn && !CGRectIsEmpty(dislikeBtn.frame)) {
-            CGRect dislikeFrame = [self convertRect:dislikeBtn.bounds fromView:dislikeBtn];
-            gap = dislikeFrame.origin.y - CGRectGetMaxY(likeFrame);
-        } else {
-            gap = 8.0; // fallback
-        }
-
-        // Position symmetrically above the like button using the same gap
-        CGFloat aboveLike = likeFrame.origin.y - gap - btnHeight;
-        dlBtn.frame = CGRectMake(centerX - btnHeight/2, aboveLike, btnHeight, btnHeight);
+        CGFloat btnSize = likeFrame.size.width;
+        dlBtn.frame = CGRectMake(centerX - btnSize / 2, likeFrame.origin.y - btnSize - 4.0, btnSize, btnSize);
     } else {
         // Fallback: right side, above typical action bar area
         CGFloat btnSize = 44.0;
@@ -1660,6 +1665,7 @@ static UIImage *YTPlusIconImage(NSInteger iconType) {
 @property (nonatomic, copy) NSString *languageCode;
 @property (nonatomic, copy) NSString *languageName;
 @property (nonatomic, assign) BOOL drcAudio;
+@property (nonatomic, assign) BOOL isDefaultAudio;
 @end
 
 @implementation YTPlusMediaFormat
@@ -2903,6 +2909,20 @@ static YTPlusMediaFormat *YTPlusMediaFormatFromStream(id stream, BOOL video) {
             if (value.length) [audioTraits addObject:value];
         }
         format.drcAudio = [[audioTraits componentsJoinedByString:@" "] localizedCaseInsensitiveContainsString:@"drc"];
+
+        // Detect default/original audio track
+        NSString *traitsJoined = [audioTraits componentsJoinedByString:@" "];
+        BOOL isOriginal = [traitsJoined localizedCaseInsensitiveContainsString:@"original"];
+        BOOL isDefault = YTPlusBoolFromSel(stream, @selector(audioIsDefault)) || YTPlusBoolFromSel(formatStream, @selector(audioIsDefault));
+        // audioTrack may be an object with audioIsDefault property
+        id audioTrackObj = YTPlusObjectFromSel(stream, @selector(audioTrack));
+        if (!audioTrackObj) audioTrackObj = YTPlusObjectFromSel(formatStream, @selector(audioTrack));
+        if (audioTrackObj && [audioTrackObj respondsToSelector:@selector(audioIsDefault)]) {
+            isDefault = isDefault || YTPlusBoolFromSel(audioTrackObj, @selector(audioIsDefault));
+        }
+        // No explicit language and no track type = single-language video, treat as default
+        if (!isDefault && !isOriginal && format.languageCode.length == 0) isDefault = YES;
+        format.isDefaultAudio = isDefault || isOriginal;
     }
     if (YTPlusBoolFromSel(stream, @selector(hasContentLength)) || [stream respondsToSelector:@selector(contentLength)])
         format.contentLength = YTPlusULLFromSel(stream, @selector(contentLength));
@@ -2994,6 +3014,10 @@ static NSArray <YTPlusMediaFormat *> *YTPlusFormatsForPlayer(YTPlayerViewControl
         BOOL rightMP4 = YTPlusIsMP4Family(right);
         if (leftMP4 != rightMP4) return leftMP4 ? NSOrderedAscending : NSOrderedDescending;
         
+        // For audio: prefer the default/original language track
+        if (!video && left.isDefaultAudio != right.isDefaultAudio)
+            return left.isDefaultAudio ? NSOrderedAscending : NSOrderedDescending;
+
         if (!video && ytpBool(@"downloadPreferDRC") && left.drcAudio != right.drcAudio)
             return left.drcAudio ? NSOrderedAscending : NSOrderedDescending;
         if (left.contentLength != right.contentLength)
