@@ -24,7 +24,7 @@ NSBundle *RYDBundle() {
 
 %hook YTReelWatchLikesController
 
-- (void)triggerEntityChangeForRenderer:(YTILikeButtonRenderer *)renderer {
+- (void)updateLikeButtonWithRenderer:(YTILikeButtonRenderer *)renderer {
     %orig;
     if (!RYDTweakEnabled()) return;
     YTQTMButton *dislikeButton = self.dislikeButton;
@@ -78,7 +78,21 @@ NSBundle *RYDBundle() {
 
 %end
 
-// YTLikeService removed in 21.16.2
+%hook YTLikeService
+
+- (void)notifyVideoLikeStatus:(YTLikeStatus)likeStatus withID:(NSString *)videoId {
+    if (RYDTweakEnabled() && VoteSubmissionEnabled())
+        sendVote(videoId, likeStatus);
+    %orig;
+}
+
+- (void)notifyPlaylistLikeStatus:(YTLikeStatus)likeStatus withID:(NSString *)playlistId {
+    if (RYDTweakEnabled() && VoteSubmissionEnabled())
+        sendVote(playlistId, likeStatus);
+    %orig;
+}
+
+%end
 
 %hook YTLikeServiceImpl
 
@@ -445,7 +459,16 @@ static void layoutActionBar(YTReelWatchPlaybackOverlayView *self) {
 
 %end
 
-// YTReelWatchPlaybackOverlayViewSub removed in 21.16.2
+%hook YTReelWatchPlaybackOverlayViewSub
+
+%property (assign, nonatomic) BOOL didGetVote;
+
+- (void)layoutActionBar {
+    %orig;
+    layoutActionBar((YTReelWatchPlaybackOverlayView *)self);
+}
+
+%end
 
 %hook YTRollingNumberNode
 
@@ -468,7 +491,31 @@ static void layoutActionBar(YTReelWatchPlaybackOverlayView *self) {
 }
 
 %new(v@:@@)
-// updateCount:color: removed in 21.16.2
+- (void)updateCount:(NSString *)updatedCount_ color:(UIColor *)color_ {
+    YTRollingNumberView *view = [self valueForKey:@"_rollingNumberView"];
+    UIFont *font = view.font;
+    UIColor *color = color_ ?: view.color;
+    NSString *updatedCount = [NSString stringWithFormat:@" %@", updatedCount_];
+    if ([view respondsToSelector:@selector(setUpdatedCount:updatedCountNumber:font:fontAttributes:color:skipAnimation:)])
+        [view setUpdatedCount:updatedCount updatedCountNumber:self.updatedCountNumber font:font fontAttributes:view.fontAttributes color:color skipAnimation:YES];
+    else
+        [view setUpdatedCount:updatedCount updatedCountNumber:self.updatedCountNumber font:font color:color skipAnimation:YES];
+}
+
+%end
+
+%hook ELMNodeFactory
+
+- (Class)classForElement:(id)element materializationContext:(const void *)context {
+    switch (overrideNodeCreation) {
+        case 1:
+            return %c(YTRollingNumberNode);
+        case 2:
+            return %c(ELMTextNode);
+        default:
+            return %orig;
+    }
+}
 
 %end
 

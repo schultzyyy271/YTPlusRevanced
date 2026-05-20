@@ -215,9 +215,7 @@ static void sortButtons(NSMutableArray <NSString *> *buttons) {
     @try {
         self.overlayButtons = createOverlayButtons(YES, self);
         sortButtons(topButtons);
-    } @catch (id ex) {
-        NSLog(@"[YTVideoOverlay] initWithDelegate error: %@", ex);
-    }
+    } @catch (id ex) {}
     return self;
 }
 
@@ -236,6 +234,7 @@ static void sortButtons(NSMutableArray <NSString *> *buttons) {
 - (NSMutableArray *)topControls {
     return topControls(self, %orig);
 }
+
 
 - (void)setTopOverlayVisible:(BOOL)visible isAutonavCanceledState:(BOOL)canceledState {
     CGFloat alpha = canceledState || !visible ? 0.0 : 1.0;
@@ -264,9 +263,7 @@ static void sortButtons(NSMutableArray <NSString *> *buttons) {
     @try {
         self.overlayButtons = createOverlayButtons(NO, self);
         sortButtons(bottomButtons);
-    } @catch (id ex) {
-        NSLog(@"[YTVideoOverlay] init error: %@", ex);
-    }
+    } @catch (id ex) {}
     return self;
 }
 
@@ -327,8 +324,70 @@ static void sortButtons(NSMutableArray <NSString *> *buttons) {
     }
 }
 
-// setPeekableViewVisible:fullscreenButtonVisibleShouldMatchPeekableView: removed in 21.16.2
-// peekWithShowScrubber:setControlsAbovePlayerBarVisible: removed in 21.16.2
+- (void)setPeekableViewVisible:(BOOL)visible fullscreenButtonVisibleShouldMatchPeekableView:(BOOL)match {
+    %orig;
+    for (NSString *name in bottomButtons) {
+        if (UseBottomButton(name))
+            self.overlayButtons[name].alpha = visible ? 1 : 0;
+    }
+}
+
+- (void)peekWithShowScrubber:(BOOL)scrubber setControlsAbovePlayerBarVisible:(BOOL)visible {
+    %orig;
+    for (NSString *name in bottomButtons) {
+        if (UseBottomButton(name))
+            self.overlayButtons[name].alpha = visible ? 1 : 0;
+    }
+}
+
+- (void)layoutSubviews {
+    %orig;
+    CGFloat multiFeedWidth = [self respondsToSelector:@selector(multiFeedElementView)] ? [self multiFeedElementView].frame.size.width : 0;
+    YTQTMButton *enter = [self enterFullscreenButton];
+    CGFloat cornerRadius = enter.layer.cornerRadius;
+    CGFloat fullscreenButtonWidth = 0;
+    CGFloat fullscreenImageWidth = 0;
+    CGRect frame = CGRectZero;
+    if ([enter yt_isVisible]) {
+        frame = enter.frame;
+        fullscreenButtonWidth = frame.size.width;
+        fullscreenImageWidth = enter.currentImage.size.width;
+    } else {
+        YTQTMButton *exit = [self exitFullscreenButton];
+        if ([exit yt_isVisible]) {
+            cornerRadius = exit.layer.cornerRadius;
+            frame = exit.frame;
+            fullscreenButtonWidth = frame.size.width;
+            fullscreenImageWidth = exit.currentImage.size.width;
+        }
+    }
+    if (CGRectIsEmpty(frame) || frame.origin.x <= 0 || frame.origin.y < -4) return;
+    CGFloat gap = fullscreenButtonWidth > fullscreenImageWidth ? 12 : fullscreenButtonWidth;
+    frame.origin.x -= gap + multiFeedWidth + fullscreenButtonWidth;
+    UIView *peekableView = [self peekableView];
+    for (NSString *name in bottomButtons) {
+        if (UseBottomButton(name)) {
+            YTQTMButton *button = self.overlayButtons[name];
+            YTFrostedGlassView *frostedGlassView = self.overlayGlasses[name];
+            if (self.layout == 3 && button.superview == self) {
+                [button removeFromSuperview];
+                [frostedGlassView removeFromSuperview];
+                [peekableView addSubview:button];
+            }
+            if (self.layout != 3 && button.superview == peekableView) {
+                [button removeFromSuperview];
+                [frostedGlassView removeFromSuperview];
+                [self addSubview:button];
+            }
+            button.layer.cornerRadius = cornerRadius;
+            maybeApplyToView(frostedGlassView, button);
+            button.frame = frame;
+            frame.origin.x -= frame.size.width + gap;
+            if (frame.origin.x < 0) frame.origin.x = 0;
+        }
+    }
+}
+
 %end
 
 %end
