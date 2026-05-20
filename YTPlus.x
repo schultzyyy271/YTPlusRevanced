@@ -3060,9 +3060,40 @@ static YTPlusMediaFormat *YTPlusBestAudio(YTPlayerViewController *player) {
     // Strategy 1: Get the audio track the player is currently using
     // This is the most reliable way — download what the user is hearing
     @try {
+        id selectedTrack = nil;
+
+        // For regular videos: contentVideoPlayerOverlay.selectedAudioTrack
         id overlay = YTPlusObjectFromSel(player, @selector(contentVideoPlayerOverlay));
         if (!overlay) overlay = YTPlusObjectFromSel(player, @selector(activeVideoPlayerOverlay));
-        id selectedTrack = YTPlusObjectFromSel(overlay, @selector(selectedAudioTrack));
+        if (overlay) selectedTrack = YTPlusObjectFromSel(overlay, @selector(selectedAudioTrack));
+
+        // For Shorts: walk the responder chain to find YTReelPlayerViewController
+        // which has selectedAudioTrack directly
+        if (!selectedTrack) {
+            UIResponder *r = (UIResponder *)player;
+            for (int i = 0; i < 15 && r; i++) {
+                if ([r isKindOfClass:%c(YTReelPlayerViewController)] ||
+                    [r isKindOfClass:%c(YTReelContainerViewController)]) {
+                    selectedTrack = YTPlusObjectFromSel(r, @selector(selectedAudioTrack));
+                    break;
+                }
+                r = r.nextResponder;
+            }
+        }
+
+        // Also try player.parentViewController chain
+        if (!selectedTrack) {
+            UIViewController *vc = [player isKindOfClass:[UIViewController class]] ? (UIViewController *)player : nil;
+            for (int i = 0; i < 10 && vc; i++) {
+                if ([vc isKindOfClass:%c(YTReelPlayerViewController)] ||
+                    [vc isKindOfClass:%c(YTReelContainerViewController)]) {
+                    selectedTrack = YTPlusObjectFromSel(vc, @selector(selectedAudioTrack));
+                    break;
+                }
+                vc = vc.parentViewController;
+            }
+        }
+
         if (selectedTrack) {
             // Get the track ID (e.g. "en.1", "ja.1") and displayName (e.g. "English")
             NSString *trackID = YTPlusStringFromSel(selectedTrack, @selector(id));
@@ -3075,8 +3106,7 @@ static YTPlusMediaFormat *YTPlusBestAudio(YTPlayerViewController *player) {
                 for (YTPlusMediaFormat *format in audioFormats) {
                     NSString *fmtLang = format.languageCode.lowercaseString;
                     if (fmtLang.length && [fmtLang hasPrefix:trackLang]) return format;
-                    // Also match against languageName
-                    if (format.languageName.length && [format.languageName localizedCaseInsensitiveContainsString:trackName]) return format;
+                    if (format.languageName.length && trackName.length && [format.languageName localizedCaseInsensitiveContainsString:trackName]) return format;
                 }
             }
             // Match by display name if track ID didn't work
