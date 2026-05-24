@@ -2880,16 +2880,37 @@ static YTPlusMediaFormat *YTPlusMediaFormatFromStream(id stream, BOOL video) {
     }
     if (format.qualityLabel.length == 0 && !video) format.qualityLabel = @"Audio";
     if (!video) {
+        // Get the audioTrack sub-object first — it contains language and default info
+        id audioTrackObj = YTPlusObjectFromSel(stream, @selector(audioTrack));
+        if (!audioTrackObj) audioTrackObj = YTPlusObjectFromSel(formatStream, @selector(audioTrack));
+
+        // Extract language code from multiple sources
         NSString *languageCode = YTPlusStringFromSel(stream, @selector(languageCode));
         if (languageCode.length == 0) languageCode = YTPlusStringFromSel(formatStream, @selector(languageCode));
         if (languageCode.length == 0) languageCode = YTPlusStringFromSel(stream, @selector(language));
         if (languageCode.length == 0) languageCode = YTPlusStringFromSel(formatStream, @selector(language));
+        // Try audioTrack object's ID — YouTube uses format "en.1", "ja.1", "en.drc.1"
+        if (languageCode.length == 0 && audioTrackObj) {
+            NSString *trackID = YTPlusStringFromSel(audioTrackObj, @selector(id_p));
+            if (!trackID.length) trackID = YTPlusStringFromSel(audioTrackObj, @selector(id));
+            if (trackID.length == 0) trackID = YTPlusStringFromSel(audioTrackObj, @selector(identifier));
+            if (trackID.length == 0) trackID = YTPlusStringFromSel(audioTrackObj, @selector(audioTrackId));
+            if (trackID.length >= 2) {
+                // Extract language prefix from track ID like "en.1" -> "en"
+                NSString *prefix = [[trackID componentsSeparatedByString:@"."] firstObject];
+                if (prefix.length >= 2 && prefix.length <= 5) languageCode = prefix;
+            }
+        }
         format.languageCode = languageCode;
 
         NSString *languageName = YTPlusStringFromSel(stream, @selector(languageName));
         if (languageName.length == 0) languageName = YTPlusStringFromSel(formatStream, @selector(languageName));
         if (languageName.length == 0) languageName = YTPlusStringFromSel(stream, @selector(displayName));
         if (languageName.length == 0) languageName = YTPlusStringFromSel(formatStream, @selector(displayName));
+        // Try audioTrack object's displayName (e.g. "English", "Japanese")
+        if (languageName.length == 0 && audioTrackObj) {
+            languageName = YTPlusStringFromSel(audioTrackObj, @selector(displayName));
+        }
         format.languageName = languageName.length ? languageName : languageCode;
 
         NSMutableArray *audioTraits = [NSMutableArray array];
@@ -2911,9 +2932,6 @@ static YTPlusMediaFormat *YTPlusMediaFormatFromStream(id stream, BOOL video) {
         NSString *traitsJoined = [audioTraits componentsJoinedByString:@" "];
         BOOL isOriginal = [traitsJoined localizedCaseInsensitiveContainsString:@"original"];
         BOOL isDefault = YTPlusBoolFromSel(stream, @selector(audioIsDefault)) || YTPlusBoolFromSel(formatStream, @selector(audioIsDefault));
-        // audioTrack may be an object with audioIsDefault property
-        id audioTrackObj = YTPlusObjectFromSel(stream, @selector(audioTrack));
-        if (!audioTrackObj) audioTrackObj = YTPlusObjectFromSel(formatStream, @selector(audioTrack));
         if (audioTrackObj && [audioTrackObj respondsToSelector:@selector(audioIsDefault)]) {
             isDefault = isDefault || YTPlusBoolFromSel(audioTrackObj, @selector(audioIsDefault));
         }
@@ -3040,10 +3058,76 @@ static YTPlusMediaFormat *YTPlusBestAudio(YTPlayerViewController *player) {
     NSArray <YTPlusMediaFormat *> *audioFormats = YTPlusFormatsForPlayer(player, NO);
     if (audioFormats.count <= 1) return audioFormats.firstObject;
 
-    // Try to match the user's preferred language
+    // Strategy 1: Get the audio track the player is currently using
+    // This is the most reliable way — download what the user is hearing
+    @try {
+        id selectedTrack = nil;
+
+        // For regular videos: contentVideoPlayerOverlay.selectedAudioTrack
+        id overlay = YTPlusObjectFromSel(player, @selector(contentVideoPlayerOverlay));
+        if (!overlay) overlay = YTPlusObjectFromSel(player, @selector(activeVideoPlayerOverlay));
+        if (overlay) selectedTrack = YTPlusObjectFromSel(overlay, @selector(selectedAudioTrack));
+
+        // For Shorts: walk the responder chain to find YTReelPlayerViewController
+        // which has selectedAudioTrack directly
+        if (!selectedTrack) {
+            UIResponder *r = (UIResponder *)player;
+            for (int i = 0; i < 15 && r; i++) {
+                if ([r isKindOfClass:%c(YTReelPlayerViewController)] ||
+                    [r isKindOfClass:%c(YTReelContainerViewController)]) {
+                    selectedTrack = YTPlusObjectFromSel(r, @selector(selectedAudioTrack));
+                    break;
+                }
+                r = r.nextResponder;
+            }
+        }
+
+        // Also try player.parentViewController chain
+        if (!selectedTrack) {
+            UIViewController *vc = [player isKindOfClass:[UIViewController class]] ? (UIViewController *)player : nil;
+            for (int i = 0; i < 10 && vc; i++) {
+                if ([vc isKindOfClass:%c(YTReelPlayerViewController)] ||
+                    [vc isKindOfClass:%c(YTReelContainerViewController)]) {
+                    selectedTrack = YTPlusObjectFromSel(vc, @selector(selectedAudioTrack));
+                    break;
+                }
+                vc = vc.parentViewController;
+            }
+        }
+
+        if (selectedTrack) {
+            // Get the track ID (e.g. "en.1", "ja.1") and displayName (e.g. "English")
+            NSString *trackID = YTPlusStringFromSel(selectedTrack, @selector(id_p));
+            if (!trackID.length) trackID = YTPlusStringFromSel(selectedTrack, @selector(id));
+            NSString *trackName = YTPlusStringFromSel(selectedTrack, @selector(displayName));
+
+            // Match by track ID prefix (language code)
+            if (trackID.length >= 2) {
+                NSString *trackLang = [[trackID componentsSeparatedByString:@"."] firstObject].lowercaseString;
+                for (YTPlusMediaFormat *format in audioFormats) {
+                    NSString *fmtLang = format.languageCode.lowercaseString;
+                    if (fmtLang.length && [fmtLang hasPrefix:trackLang]) return format;
+                    if (format.languageName.length && trackName.length && [format.languageName localizedCaseInsensitiveContainsString:trackName]) return format;
+                }
+            }
+            // Match by display name if track ID didn't work
+            if (trackName.length) {
+                for (YTPlusMediaFormat *format in audioFormats) {
+                    if (format.languageName.length && [format.languageName localizedCaseInsensitiveContainsString:trackName]) return format;
+                }
+            }
+            // If selected track has audioIsDefault, find the default format
+            if (YTPlusBoolFromSel(selectedTrack, @selector(audioIsDefault))) {
+                for (YTPlusMediaFormat *format in audioFormats) {
+                    if (format.isDefaultAudio) return format;
+                }
+            }
+        }
+    } @catch (__unused NSException *e) {}
+
+    // Strategy 2: Match the user's device language
     NSArray *preferredLanguages = [NSLocale preferredLanguages];
     for (NSString *preferred in preferredLanguages) {
-        // preferred is like "en-AU", "en", "ja-JP" etc
         NSString *langPrefix = [[preferred componentsSeparatedByString:@"-"] firstObject].lowercaseString;
         for (YTPlusMediaFormat *format in audioFormats) {
             NSString *fmtLang = format.languageCode.lowercaseString;
@@ -3051,7 +3135,7 @@ static YTPlusMediaFormat *YTPlusBestAudio(YTPlayerViewController *player) {
         }
     }
 
-    // Fallback: prefer tracks with "original" in their traits or name
+    // Strategy 3: Prefer default/original track
     for (YTPlusMediaFormat *format in audioFormats) {
         if (format.isDefaultAudio) return format;
     }

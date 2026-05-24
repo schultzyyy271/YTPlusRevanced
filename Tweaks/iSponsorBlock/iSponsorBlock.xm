@@ -91,7 +91,7 @@ void currentVideoTimeDidChange(YTPlayerViewController *self, YTSingleVideoTime *
     if (self.skipSegments.count > 0 && [overlayView isKindOfClass:%c(YTMainAppVideoPlayerOverlayView)] && ![kWhitelistedChannels containsObject:self.channelID]) {
         if (kShowModifiedTime) {
             UILabel *durationLabel = overlayView.playerBar.durationLabel;
-            if (![durationLabel.text containsString:modifiedTimeString]) durationLabel.text = [NSString stringWithFormat:@"%@ (%@)", durationLabel.text, modifiedTimeString];
+            if (modifiedTimeString && ![durationLabel.text containsString:modifiedTimeString]) durationLabel.text = [NSString stringWithFormat:@"%@ (%@)", durationLabel.text ?: @"", modifiedTimeString];
             [durationLabel sizeToFit];
         }
         
@@ -110,11 +110,11 @@ void currentVideoTimeDidChange(YTPlayerViewController *self, YTSingleVideoTime *
                     self.hudDisplayed = YES; // Set yes to make sure that HUD is not persistent (Issue #62)
                     self.hud.mode = MBProgressHUDModeCustomView;
                     NSString *localizedSegment = categoryLocalization[sponsorSegment.category] ?: sponsorSegment.category;
-                    NSString *localizedManualSkip = LOC(@"ManuallySkipReminder");
-                    NSString *formattedManualSkip = [NSString stringWithFormat:localizedManualSkip, localizedSegment, lroundf(sponsorSegment.startTime)/60, lroundf(sponsorSegment.startTime)%60, lroundf(sponsorSegment.endTime)/60, lroundf(sponsorSegment.endTime)%60];
+                    NSString *localizedManualSkip = LOC(@"ManuallySkipReminder") ?: @"Manually Skip %@ segment\nfrom %ld:%02ld to %ld:%02ld?";
+                    NSString *formattedManualSkip = [NSString stringWithFormat:localizedManualSkip, localizedSegment ?: @"", lroundf(sponsorSegment.startTime)/60, lroundf(sponsorSegment.startTime)%60, lroundf(sponsorSegment.endTime)/60, lroundf(sponsorSegment.endTime)%60];
                     self.hud.label.text = formattedManualSkip;
                     self.hud.label.numberOfLines = 0;
-                    [self.hud.button setTitle:LOC(@"Skip") forState:UIControlStateNormal];
+                    [self.hud.button setTitle:LOC(@"Skip") ?: @"Skip" forState:UIControlStateNormal];
                     [self.hud.button addTarget:self action:@selector(manuallySkipSegment:) forControlEvents:UIControlEventTouchUpInside];
                     // Add custom button to hide HUD
                     UIButton *cancelButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -157,11 +157,10 @@ void currentVideoTimeDidChange(YTPlayerViewController *self, YTSingleVideoTime *
                     [MBProgressHUD hideHUDForView:self.view animated:YES];
                     self.hud = [MBProgressHUD showHUDAddedTo:self.view animated:YES];
                     self.hud.mode = MBProgressHUDModeCustomView;
-                    // Translate and add segment name to the skipped HUD (issue #70)
-                    NSString *localizedSegment = categoryLocalization[sponsorSegment.category] ?: sponsorSegment.category;
-                    self.hud.label.text = [NSString stringWithFormat:LOC(@"SkippedSegment"), localizedSegment];
+                    NSString *localizedSegment = categoryLocalization[sponsorSegment.category] ?: sponsorSegment.category ?: @"";
+                    self.hud.label.text = [NSString stringWithFormat:LOC(@"SkippedSegment") ?: @"Skipped %@ Segment", localizedSegment];
                     self.hud.label.numberOfLines = 0;
-                    [self.hud.button setTitle:LOC(@"Unskip") forState:UIControlStateNormal];
+                    [self.hud.button setTitle:LOC(@"Unskip") ?: @"Unskip" forState:UIControlStateNormal];
                     [self.hud.button addTarget:self action:@selector(unskipSegment:) forControlEvents:UIControlEventTouchUpInside];
                     self.hud.offset = CGPointMake(self.view.frame.size.width, -MBProgressMaxOffset);
                     [self.hud hideAnimated:YES afterDelay:kSkipNoticeDuration];

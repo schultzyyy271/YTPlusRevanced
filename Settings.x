@@ -627,6 +627,22 @@ static NSString *GetCacheSize() {
                     [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"GonerinoShowButton"];
                     return YES;
                 } settingItemId:0]];
+            [gonRows addObject:[item switchItemWithTitle:@"Hide 'People Also Watched'"
+                titleDescription:@"Block 'People also watched this video' sections"
+                accessibilityIdentifier:@"YTPlusSectionItem"
+                switchOn:[[NSUserDefaults standardUserDefaults] boolForKey:@"GonerinoPeopleWatched"]
+                switchBlock:^BOOL(YTSettingsCell *c, BOOL enabled) {
+                    [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"GonerinoPeopleWatched"];
+                    return YES;
+                } settingItemId:0]];
+            [gonRows addObject:[item switchItemWithTitle:@"Hide 'You Might Also Like'"
+                titleDescription:@"Block 'You might also like this' sections"
+                accessibilityIdentifier:@"YTPlusSectionItem"
+                switchOn:[[NSUserDefaults standardUserDefaults] boolForKey:@"GonerinoMightLike"]
+                switchBlock:^BOOL(YTSettingsCell *c, BOOL enabled) {
+                    [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"GonerinoMightLike"];
+                    return YES;
+                } settingItemId:0]];
             YTSettingsPickerViewController *gPicker = [[%c(YTSettingsPickerViewController) alloc]
                 initWithNavTitle:@"Gonerino" pickerSectionTitle:nil rows:gonRows
                 selectedItemIndex:NSNotFound parentResponder:[self parentResponder]];
@@ -639,16 +655,16 @@ static NSString *GetCacheSize() {
     YTSettingsSectionItem *volBoost = [item itemWithTitle:@"VolumeBoostYT"
         accessibilityIdentifier:@"YTPlusSectionItem"
         detailTextBlock:^NSString *{
-            return [[NSUserDefaults standardUserDefaults] boolForKey:@"VolumeBoostEnabled"] ? @"On" : @"Off";
+            return [[NSUserDefaults standardUserDefaults] boolForKey:@"VolumeBoostYTEnabled"] ? @"On" : @"Off";
         }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
             NSMutableArray *vbRows = [NSMutableArray array];
             [vbRows addObject:[item switchItemWithTitle:@"Enable Volume Boost"
                 titleDescription:@"Swipe right edge to boost volume beyond 100%"
                 accessibilityIdentifier:@"YTPlusSectionItem"
-                switchOn:[[NSUserDefaults standardUserDefaults] boolForKey:@"VolumeBoostEnabled"]
+                switchOn:[[NSUserDefaults standardUserDefaults] boolForKey:@"VolumeBoostYTEnabled"]
                 switchBlock:^BOOL(YTSettingsCell *c, BOOL enabled) {
-                    [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"VolumeBoostEnabled"];
+                    [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"VolumeBoostYTEnabled"];
                     return YES;
                 } settingItemId:0]];
             YTSettingsPickerViewController *vbPicker = [[%c(YTSettingsPickerViewController) alloc]
@@ -664,39 +680,88 @@ static NSString *GetCacheSize() {
         accessibilityIdentifier:@"YTPlusSectionItem"
         detailTextBlock:^NSString *{ return @">"; }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
+            NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
             NSMutableArray *ytRows = [NSMutableArray array];
-            [ytRows addObject:[item switchItemWithTitle:@"Force Dark Mode"
-                titleDescription:@"Override YouTube theme to dark/night mode"
+
+            // Night Mode — uses integer key "nightMode_level" (0=Off,1=Low,2=Med,3=High,4=Max)
+            NSArray *nightLabels = @[@"Off", @"Low", @"Medium", @"High", @"Maximum"];
+            NSInteger currentLevel = [ud integerForKey:@"nightMode_level"];
+            if (currentLevel < 0 || currentLevel > 4) currentLevel = 0;
+            [ytRows addObject:[item itemWithTitle:@"Night Mode"
+                titleDescription:@"Dim overlay to reduce eye strain at night"
                 accessibilityIdentifier:@"YTPlusSectionItem"
-                switchOn:[[NSUserDefaults standardUserDefaults] boolForKey:@"YTweaksDarkMode"]
-                switchBlock:^BOOL(YTSettingsCell *c, BOOL enabled) {
-                    [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"YTweaksDarkMode"];
+                detailTextBlock:^NSString *{ return nightLabels[[ud integerForKey:@"nightMode_level"]]; }
+                selectBlock:^BOOL(YTSettingsCell *c, NSUInteger arg1) {
+                    NSMutableArray *nightRows = [NSMutableArray array];
+                    [nightLabels enumerateObjectsUsingBlock:^(NSString *label, NSUInteger i, BOOL *stop) {
+                        [nightRows addObject:[item checkmarkItemWithTitle:label titleDescription:nil selectBlock:^BOOL(YTSettingsCell *nc, NSUInteger idx) {
+                            [ud setInteger:(NSInteger)idx forKey:@"nightMode_level"];
+                            [settingsVC reloadData];
+                            return YES;
+                        }]];
+                    }];
+                    YTSettingsPickerViewController *nightPicker = [[%c(YTSettingsPickerViewController) alloc]
+                        initWithNavTitle:@"Night Mode" pickerSectionTitle:nil rows:nightRows
+                        selectedItemIndex:[ud integerForKey:@"nightMode_level"] parentResponder:[self parentResponder]];
+                    [settingsVC pushViewController:nightPicker];
                     return YES;
-                } settingItemId:0]];
-            [ytRows addObject:[item switchItemWithTitle:@"Force Fullscreen"
-                titleDescription:@"Always open videos in fullscreen"
+                }]];
+
+            // Force Fullscreen — uses integer key "fullscreen_mode" (0=Off, 1=Left, 2=Right)
+            NSArray *fsLabels = @[@"Off", @"Landscape Left", @"Landscape Right"];
+            [ytRows addObject:[item itemWithTitle:@"Force Fullscreen"
+                titleDescription:@"Always open videos in fullscreen landscape"
                 accessibilityIdentifier:@"YTPlusSectionItem"
-                switchOn:[[NSUserDefaults standardUserDefaults] boolForKey:@"YTweaksForceFullscreen"]
-                switchBlock:^BOOL(YTSettingsCell *c, BOOL enabled) {
-                    [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"YTweaksForceFullscreen"];
+                detailTextBlock:^NSString *{
+                    NSInteger mode = [ud integerForKey:@"fullscreen_mode"];
+                    return (mode >= 0 && mode <= 2) ? fsLabels[mode] : @"Off";
+                }
+                selectBlock:^BOOL(YTSettingsCell *c, NSUInteger arg1) {
+                    NSMutableArray *fsRows = [NSMutableArray array];
+                    [fsLabels enumerateObjectsUsingBlock:^(NSString *label, NSUInteger i, BOOL *stop) {
+                        [fsRows addObject:[item checkmarkItemWithTitle:label titleDescription:nil selectBlock:^BOOL(YTSettingsCell *fc, NSUInteger idx) {
+                            [ud setInteger:(NSInteger)idx forKey:@"fullscreen_mode"];
+                            [settingsVC reloadData];
+                            return YES;
+                        }]];
+                    }];
+                    YTSettingsPickerViewController *fsPicker = [[%c(YTSettingsPickerViewController) alloc]
+                        initWithNavTitle:@"Force Fullscreen" pickerSectionTitle:nil rows:fsRows
+                        selectedItemIndex:[ud integerForKey:@"fullscreen_mode"] parentResponder:[self parentResponder]];
+                    [settingsVC pushViewController:fsPicker];
                     return YES;
-                } settingItemId:0]];
+                }]];
+
+            // Hide AI Summaries — uses bool key "hideAISummaries_enabled"
             [ytRows addObject:[item switchItemWithTitle:@"Hide AI Summaries"
                 titleDescription:@"Remove AI-generated video summaries from feed"
                 accessibilityIdentifier:@"YTPlusSectionItem"
-                switchOn:[[NSUserDefaults standardUserDefaults] boolForKey:@"YTweaksHideAISummaries"]
+                switchOn:[ud boolForKey:@"hideAISummaries_enabled"]
                 switchBlock:^BOOL(YTSettingsCell *c, BOOL enabled) {
-                    [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"YTweaksHideAISummaries"];
+                    [ud setBool:enabled forKey:@"hideAISummaries_enabled"];
                     return YES;
                 } settingItemId:0]];
+
+            // Virtual Bezel — uses bool key "virtualBezel_enabled"
             [ytRows addObject:[item switchItemWithTitle:@"Virtual Bezel"
                 titleDescription:@"Show a virtual device bezel around the video"
                 accessibilityIdentifier:@"YTPlusSectionItem"
-                switchOn:[[NSUserDefaults standardUserDefaults] boolForKey:@"YTweaksVirtualBezel"]
+                switchOn:[ud boolForKey:@"virtualBezel_enabled"]
                 switchBlock:^BOOL(YTSettingsCell *c, BOOL enabled) {
-                    [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"YTweaksVirtualBezel"];
+                    [ud setBool:enabled forKey:@"virtualBezel_enabled"];
                     return YES;
                 } settingItemId:0]];
+
+            // Fix Casting — uses bool key "fixCasting_enabled"
+            [ytRows addObject:[item switchItemWithTitle:@"Fix Casting"
+                titleDescription:@"Fix casting issues with Chromecast/AirPlay"
+                accessibilityIdentifier:@"YTPlusSectionItem"
+                switchOn:[ud boolForKey:@"fixCasting_enabled"]
+                switchBlock:^BOOL(YTSettingsCell *c, BOOL enabled) {
+                    [ud setBool:enabled forKey:@"fixCasting_enabled"];
+                    return YES;
+                } settingItemId:0]];
+
             YTSettingsPickerViewController *ytPicker = [[%c(YTSettingsPickerViewController) alloc]
                 initWithNavTitle:@"YTweaks" pickerSectionTitle:nil rows:ytRows
                 selectedItemIndex:NSNotFound parentResponder:[self parentResponder]];

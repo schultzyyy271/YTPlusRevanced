@@ -104,7 +104,7 @@
 
 + (BOOL)nodeContainsBlockedVideo:(id)node {
     BOOL isEnabled = [[NSUserDefaults standardUserDefaults] objectForKey:@"GonerinoEnabled"] == nil ? 
-                    YES : [[NSUserDefaults standardUserDefaults] boolForKey:@"GonerinoEnabled"];
+                    NO : [[NSUserDefaults standardUserDefaults] boolForKey:@"GonerinoEnabled"];
     
     if (!isEnabled) {
         return NO;
