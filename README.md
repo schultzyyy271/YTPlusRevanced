@@ -29,8 +29,6 @@ A flexible enhancer for YouTube on iOS, featuring over a hundred customizable op
 
 ## Integrated Tweaks
 
-All tweaks are compiled inline into a single `YouTubePlusRevanced.dylib`, except iSponsorBlock which ships as its own dylib.
-
 | Tweak | Author | Description |
 |---|---|---|
 | **YouPiP** | [PoomSmart](https://github.com/PoomSmart) | Native Picture-in-Picture for YouTube videos |
