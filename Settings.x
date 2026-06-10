@@ -1015,8 +1015,9 @@ static NSString *GetCacheSize() {
             if (!ytpBool(@"versionSpooferEnabled")) return NO;
             NSMutableArray *rows = [NSMutableArray array];
             [versionList enumerateObjectsUsingBlock:^(NSString *ver, NSUInteger i, BOOL *stop) {
-                [rows addObject:[item checkmarkItemWithTitle:ver titleDescription:nil selectBlock:^BOOL(YTSettingsCell *c, NSUInteger idx) {
-                    ytpSetInt((int)i, @"versionSpooferIndex");
+                NSInteger capturedIndex = (NSInteger)i;
+                [rows addObject:[item checkmarkItemWithTitle:ver titleDescription:nil selectBlock:^BOOL(YTSettingsCell *c, NSUInteger unused) {
+                    ytpSetInt((int)capturedIndex, @"versionSpooferIndex");
                     ytpSetBool(YES, @"versionSpooferIndexSet");
                     [settingsVC reloadData];
                     return YES;
