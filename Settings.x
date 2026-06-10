@@ -1011,8 +1011,8 @@ static NSString *GetCacheSize() {
             NSMutableArray *rows = [NSMutableArray array];
             [versionList enumerateObjectsUsingBlock:^(NSString *ver, NSUInteger i, BOOL *stop) {
                 [rows addObject:[item checkmarkItemWithTitle:ver titleDescription:nil selectBlock:^BOOL(YTSettingsCell *c, NSUInteger idx) {
-                    ytpSetInt((int)idx, @"versionSpooferIndex");
                     [settingsVC reloadData];
+                    ytpSetInt((int)idx, @"versionSpooferIndex");
                     return YES;
                 }]];
             }];
