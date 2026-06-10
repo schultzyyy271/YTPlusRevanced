@@ -1005,14 +1005,21 @@ static NSString *GetCacheSize() {
 
     YTSettingsSectionItem *versionSpooferPicker = [item itemWithTitle:@"Spoofed Version"
         accessibilityIdentifier:@"YTPlusSectionItem"
-        detailTextBlock:^NSString *{ return ytpBool(@"versionSpooferEnabled") ? versionList[ytpInt(@"versionSpooferIndex")] : @"Off"; }
+        detailTextBlock:^NSString *{
+            if (!ytpBool(@"versionSpooferEnabled")) return @"Off";
+            return [NSString stringWithFormat:@"%@ (idx:%ld i:%ld)",
+                versionList[MIN(MAX(ytpInt(@"versionSpooferIndex"), 0), (NSInteger)versionList.count - 1)],
+                (long)ytpInt(@"versionSpooferIndex"),
+                (long)ytpInt(@"versionSpooferCapturedI")];
+        }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
             if (!ytpBool(@"versionSpooferEnabled")) return NO;
             NSMutableArray *rows = [NSMutableArray array];
             [versionList enumerateObjectsUsingBlock:^(NSString *ver, NSUInteger i, BOOL *stop) {
                 [rows addObject:[item checkmarkItemWithTitle:ver titleDescription:nil selectBlock:^BOOL(YTSettingsCell *c, NSUInteger idx) {
-                    [settingsVC reloadData];
                     ytpSetInt((int)idx, @"versionSpooferIndex");
+                    ytpSetInt((int)i, @"versionSpooferCapturedI");
+                    [settingsVC reloadData];
                     return YES;
                 }]];
             }];
