@@ -833,7 +833,7 @@ static NSArray *ytpVersionList() {
 + (NSString *)appVersion {
     if (!ytpBool(@"versionSpooferEnabled")) return %orig;
     NSArray *versions = ytpVersionList();
-    NSInteger idx = [[NSUserDefaults standardUserDefaults] integerForKey:@"versionSpooferIndex"];
+    NSInteger idx = ytpInt(@"versionSpooferIndex");
     if (idx < 0 || idx >= (NSInteger)versions.count) return %orig;
     return versions[idx];
 }
@@ -844,7 +844,7 @@ static NSArray *ytpVersionList() {
 - (void)setDetailText:(id)arg1 {
     if (ytpBool(@"versionSpooferEnabled") && [arg1 isKindOfClass:[NSString class]]) {
         NSArray *versions = ytpVersionList();
-        NSInteger idx = [[NSUserDefaults standardUserDefaults] integerForKey:@"versionSpooferIndex"];
+        NSInteger idx = ytpInt(@"versionSpooferIndex");
         if (idx >= 0 && idx < (NSInteger)versions.count && [arg1 isEqualToString:versions[idx]]) {
             arg1 = [[NSBundle mainBundle] infoDictionary][@"CFBundleShortVersionString"];
         }

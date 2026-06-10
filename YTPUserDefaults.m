@@ -26,9 +26,9 @@ static NSString *const kDefaultsSuiteName = @"com.community.youtubeplusrevanced"
 
 - (void)registerYTPDefaults {
     [self registerDefaults:@{
-        @"versionSpooferEnabled":  @NO,
-        @"versionSpooferIndexSet": @NO,
-        @"versionSpooferIndex":    @16, // default to last entry (20.50.10)
+        // Version spoofer
+        @"versionSpooferEnabled": @NO,
+        @"versionSpooferIndex":   @0,
 
         // Core — on by default
         @"noAds":              @YES,

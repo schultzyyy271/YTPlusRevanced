@@ -990,7 +990,6 @@ static NSString *GetCacheSize() {
         @"21.06.2", @"21.05.3", @"21.04.2", @"21.03.2", @"21.02.3",
         @"21.01.3", @"20.50.10"
     ];
-    NSUserDefaults *vud = [NSUserDefaults standardUserDefaults];
 
     YTSettingsSectionItem *versionSpooferToggle = [item switchItemWithTitle:@"Version Spoofer"
         titleDescription:@"Spoof the app version reported to YouTube. Useful if an update breaks features."
@@ -1006,27 +1005,20 @@ static NSString *GetCacheSize() {
 
     YTSettingsSectionItem *versionSpooferPicker = [item itemWithTitle:@"Spoofed Version"
         accessibilityIdentifier:@"YTPlusSectionItem"
-        detailTextBlock:^NSString *{
-            if (!ytpBool(@"versionSpooferEnabled")) return @"Off";
-            NSInteger idx = [vud integerForKey:@"versionSpooferIndex"];
-            if (idx < 0 || idx >= (NSInteger)versionList.count) idx = 0;
-            return versionList[idx];
-        }
+        detailTextBlock:^NSString *{ return ytpBool(@"versionSpooferEnabled") ? versionList[ytpInt(@"versionSpooferIndex")] : @"Off"; }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
             if (!ytpBool(@"versionSpooferEnabled")) return NO;
             NSMutableArray *rows = [NSMutableArray array];
             [versionList enumerateObjectsUsingBlock:^(NSString *ver, NSUInteger i, BOOL *stop) {
                 [rows addObject:[item checkmarkItemWithTitle:ver titleDescription:nil selectBlock:^BOOL(YTSettingsCell *c, NSUInteger idx) {
-                    [vud setInteger:(NSInteger)idx forKey:@"versionSpooferIndex"];
+                    ytpSetInt((int)idx, @"versionSpooferIndex");
                     [settingsVC reloadData];
                     return YES;
                 }]];
             }];
-            NSInteger currentIdx = [vud integerForKey:@"versionSpooferIndex"];
-            if (currentIdx < 0 || currentIdx >= (NSInteger)versionList.count) currentIdx = 0;
             YTSettingsPickerViewController *picker = [[%c(YTSettingsPickerViewController) alloc]
                 initWithNavTitle:@"Spoofed Version" pickerSectionTitle:nil rows:rows
-                selectedItemIndex:currentIdx parentResponder:[self parentResponder]];
+                selectedItemIndex:ytpInt(@"versionSpooferIndex") parentResponder:[self parentResponder]];
             [settingsVC pushViewController:picker];
             return YES;
         }];
