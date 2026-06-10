@@ -999,7 +999,8 @@ static NSString *GetCacheSize() {
             ytpSetBool(enabled, @"versionSpooferEnabled");
             [settingsVC reloadData];
             return YES;
-        }];
+        }
+        settingItemId:0];
     [sectionItems addObject:versionSpooferToggle];
 
     YTSettingsSectionItem *versionSpooferPicker = [item itemWithTitle:@"Spoofed Version"
