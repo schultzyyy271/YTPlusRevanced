@@ -29,8 +29,6 @@ A flexible enhancer for YouTube on iOS, featuring over a hundred customizable op
 
 ## Integrated Tweaks
 
-All tweaks are compiled inline into a single `YouTubePlusRevanced.dylib`, except iSponsorBlock which ships as its own dylib.
-
 | Tweak | Author | Description |
 |---|---|---|
 | **YouPiP** | [PoomSmart](https://github.com/PoomSmart) | Native Picture-in-Picture for YouTube videos |
@@ -79,18 +77,12 @@ After building, verify the dylib:
 python3 VERIFY_FIX.py .theos/obj/YouTubePlusRevanced.dylib
 ```
 
-Expected output: 5x PASS, 0x FAIL.
-
----
-
 ## Sideloading
 
 Use [Sideloadly](https://sideloadly.io) to inject the dylibs and bundles into a decrypted YouTube 21.16.2 IPA. The `.deb` contains:
 
 * `YouTubePlusRevanced.dylib` + `.plist` — main tweak
-* `iSponsorBlock.dylib` + `.plist` — SponsorBlock (separate dylib)
 * `YouTubePlusRevanced.bundle` — localization and assets
-* `iSponsorBlock.bundle` — SponsorBlock assets
 
 ---
 
