@@ -836,19 +836,24 @@ static NSArray *ytpVersionList() {
 + (NSString *)appVersion {
     if (!ytpBool(@"versionSpooferEnabled")) return %orig;
     NSArray *versions = ytpVersionList();
-    NSInteger idx = ytpInt(@"versionSpooferIndex");
-    if (idx < 0 || idx >= (NSInteger)versions.count) return %orig;
+    // If index was never set, default to oldest (last entry)
+    NSInteger idx = ytpBool(@"versionSpooferIndexSet") ? ytpInt(@"versionSpooferIndex") : (NSInteger)versions.count - 1;
+    if (idx < 0 || idx >= (NSInteger)versions.count) idx = (NSInteger)versions.count - 1;
     return versions[idx];
 }
 %end
 
-// Show real version in settings UI regardless of spoof
+// Show real version in the About section of settings, not the spoofed one
 %hook YTSettingsCell
 - (void)setDetailText:(id)arg1 {
-    NSArray *versions = ytpVersionList();
-    if ([versions containsObject:arg1]) {
-        NSString *realVersion = [[NSBundle mainBundle] infoDictionary][@"CFBundleShortVersionString"];
-        arg1 = realVersion;
+    if (ytpBool(@"versionSpooferEnabled") && [arg1 isKindOfClass:[NSString class]]) {
+        NSArray *versions = ytpVersionList();
+        NSInteger idx = ytpBool(@"versionSpooferIndexSet") ? ytpInt(@"versionSpooferIndex") : (NSInteger)versions.count - 1;
+        if (idx < 0 || idx >= (NSInteger)versions.count) idx = (NSInteger)versions.count - 1;
+        NSString *spoofed = versions[idx];
+        if ([arg1 isEqualToString:spoofed]) {
+            arg1 = [[NSBundle mainBundle] infoDictionary][@"CFBundleShortVersionString"];
+        }
     }
     %orig(arg1);
 }

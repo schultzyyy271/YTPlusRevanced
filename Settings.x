@@ -1007,8 +1007,8 @@ static NSString *GetCacheSize() {
         accessibilityIdentifier:@"YTPlusSectionItem"
         detailTextBlock:^NSString *{
             if (!ytpBool(@"versionSpooferEnabled")) return @"Off";
-            NSInteger idx = ytpInt(@"versionSpooferIndex");
-            if (idx < 0 || idx >= (NSInteger)versionList.count) return versionList[0];
+            NSInteger idx = ytpBool(@"versionSpooferIndexSet") ? ytpInt(@"versionSpooferIndex") : (NSInteger)versionList.count - 1;
+            if (idx < 0 || idx >= (NSInteger)versionList.count) idx = (NSInteger)versionList.count - 1;
             return versionList[idx];
         }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
@@ -1017,13 +1017,16 @@ static NSString *GetCacheSize() {
             [versionList enumerateObjectsUsingBlock:^(NSString *ver, NSUInteger i, BOOL *stop) {
                 [rows addObject:[item checkmarkItemWithTitle:ver titleDescription:nil selectBlock:^BOOL(YTSettingsCell *c, NSUInteger idx) {
                     ytpSetInt((int)i, @"versionSpooferIndex");
+                    ytpSetBool(YES, @"versionSpooferIndexSet");
                     [settingsVC reloadData];
                     return YES;
                 }]];
             }];
+            NSInteger currentIdx = ytpBool(@"versionSpooferIndexSet") ? ytpInt(@"versionSpooferIndex") : (NSInteger)versionList.count - 1;
+            if (currentIdx < 0 || currentIdx >= (NSInteger)versionList.count) currentIdx = (NSInteger)versionList.count - 1;
             YTSettingsPickerViewController *picker = [[%c(YTSettingsPickerViewController) alloc]
                 initWithNavTitle:@"Spoofed Version" pickerSectionTitle:nil rows:rows
-                selectedItemIndex:ytpInt(@"versionSpooferIndex") parentResponder:[self parentResponder]];
+                selectedItemIndex:currentIdx parentResponder:[self parentResponder]];
             [settingsVC pushViewController:picker];
             return YES;
         }];
