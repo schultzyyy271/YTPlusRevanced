@@ -814,21 +814,42 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 // YTVarispeedSwitchController removed in 21.16.2
 // Speed control is now handled via YTPlayerViewController setPlaybackRate:
 
-// Version spoof needed for classic quality & extra speeds
+// ─── App Version Spoofer ──────────────────────────────────────────────────────
+// Spoof the app version reported to YouTube's servers.
+// Useful when a YouTube update breaks hooks — spoof back to the last working version.
+
+static NSArray *ytpVersionList() {
+    static NSArray *versions = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        versions = @[
+            @"21.16.2", @"21.15.2", @"21.14.3", @"21.13.3", @"21.12.2",
+            @"21.11.3", @"21.10.3", @"21.09.3", @"21.08.3", @"21.07.4",
+            @"21.06.2", @"21.05.3", @"21.04.2", @"21.03.2", @"21.02.3",
+            @"21.01.3", @"20.50.10"
+        ];
+    });
+    return versions;
+}
+
 %hook YTVersionUtils
 + (NSString *)appVersion {
-    NSString *orig = %orig;
-    NSString *fake = @"18.18.2";
-    return (!ytpBool(@"classicQuality") && !ytpBool(@"extraSpeedOptions") &&
-            [orig compare:fake options:NSNumericSearch] == NSOrderedDescending) ? orig : fake;
+    if (!ytpBool(@"versionSpooferEnabled")) return %orig;
+    NSArray *versions = ytpVersionList();
+    NSInteger idx = ytpInt(@"versionSpooferIndex");
+    if (idx < 0 || idx >= (NSInteger)versions.count) return %orig;
+    return versions[idx];
 }
 %end
 
-// Show real version in settings
+// Show real version in settings UI regardless of spoof
 %hook YTSettingsCell
 - (void)setDetailText:(id)arg1 {
-    NSString *appVersion = [[NSBundle mainBundle] infoDictionary][@"CFBundleShortVersionString"];
-    if ([arg1 isEqualToString:@"18.18.2"]) arg1 = appVersion;
+    NSArray *versions = ytpVersionList();
+    if ([versions containsObject:arg1]) {
+        NSString *realVersion = [[NSBundle mainBundle] infoDictionary][@"CFBundleShortVersionString"];
+        arg1 = realVersion;
+    }
     %orig(arg1);
 }
 %end

@@ -983,6 +983,51 @@ static NSString *GetCacheSize() {
         }];
     [sectionItems addObject:tabbar];
 
+    // ── Version Spoofer ───────────────────────────────────────────────────────
+    NSArray *versionList = @[
+        @"21.16.2", @"21.15.2", @"21.14.3", @"21.13.3", @"21.12.2",
+        @"21.11.3", @"21.10.3", @"21.09.3", @"21.08.3", @"21.07.4",
+        @"21.06.2", @"21.05.3", @"21.04.2", @"21.03.2", @"21.02.3",
+        @"21.01.3", @"20.50.10"
+    ];
+
+    YTSettingsSectionItem *versionSpooferToggle = [item switchItemWithTitle:@"Version Spoofer"
+        titleDescription:@"Spoof the app version reported to YouTube. Useful if an update breaks features."
+        accessibilityIdentifier:@"YTPlusSectionItem"
+        switchOn:ytpBool(@"versionSpooferEnabled")
+        switchBlock:^BOOL(YTSettingsCell *cell, BOOL enabled) {
+            ytpSetBool(enabled, @"versionSpooferEnabled");
+            [settingsVC reloadData];
+            return YES;
+        }];
+    [sectionItems addObject:versionSpooferToggle];
+
+    YTSettingsSectionItem *versionSpooferPicker = [item itemWithTitle:@"Spoofed Version"
+        accessibilityIdentifier:@"YTPlusSectionItem"
+        detailTextBlock:^NSString *{
+            if (!ytpBool(@"versionSpooferEnabled")) return @"Off";
+            NSInteger idx = ytpInt(@"versionSpooferIndex");
+            if (idx < 0 || idx >= (NSInteger)versionList.count) return versionList[0];
+            return versionList[idx];
+        }
+        selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
+            if (!ytpBool(@"versionSpooferEnabled")) return NO;
+            NSMutableArray *rows = [NSMutableArray array];
+            [versionList enumerateObjectsUsingBlock:^(NSString *ver, NSUInteger i, BOOL *stop) {
+                [rows addObject:[item checkmarkItemWithTitle:ver titleDescription:nil selectBlock:^BOOL(YTSettingsCell *c, NSUInteger idx) {
+                    ytpSetInt((int)i, @"versionSpooferIndex");
+                    [settingsVC reloadData];
+                    return YES;
+                }]];
+            }];
+            YTSettingsPickerViewController *picker = [[%c(YTSettingsPickerViewController) alloc]
+                initWithNavTitle:@"Spoofed Version" pickerSectionTitle:nil rows:rows
+                selectedItemIndex:ytpInt(@"versionSpooferIndex") parentResponder:[self parentResponder]];
+            [settingsVC pushViewController:picker];
+            return YES;
+        }];
+    [sectionItems addObject:versionSpooferPicker];
+
     // ── Cache ─────────────────────────────────────────────────────────────────
     YTSettingsSectionItem *cacheSection = [item itemWithTitle:@"Cache"
         accessibilityIdentifier:@"YTPlusSectionItem"
