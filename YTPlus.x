@@ -815,9 +815,6 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 // Speed control is now handled via YTPlayerViewController setPlaybackRate:
 
 // ─── App Version Spoofer ──────────────────────────────────────────────────────
-// Spoof the app version reported to YouTube's servers.
-// Useful when a YouTube update breaks hooks — spoof back to the last working version.
-
 static NSArray *ytpVersionList() {
     static NSArray *versions = nil;
     static dispatch_once_t onceToken;
@@ -836,22 +833,19 @@ static NSArray *ytpVersionList() {
 + (NSString *)appVersion {
     if (!ytpBool(@"versionSpooferEnabled")) return %orig;
     NSArray *versions = ytpVersionList();
-    // If index was never set, default to oldest (last entry)
-    NSInteger idx = ytpBool(@"versionSpooferIndexSet") ? ytpInt(@"versionSpooferIndex") : (NSInteger)versions.count - 1;
-    if (idx < 0 || idx >= (NSInteger)versions.count) idx = (NSInteger)versions.count - 1;
+    NSInteger idx = [[NSUserDefaults standardUserDefaults] integerForKey:@"versionSpooferIndex"];
+    if (idx < 0 || idx >= (NSInteger)versions.count) return %orig;
     return versions[idx];
 }
 %end
 
-// Show real version in the About section of settings, not the spoofed one
+// Show real version in About settings regardless of spoof
 %hook YTSettingsCell
 - (void)setDetailText:(id)arg1 {
     if (ytpBool(@"versionSpooferEnabled") && [arg1 isKindOfClass:[NSString class]]) {
         NSArray *versions = ytpVersionList();
-        NSInteger idx = ytpBool(@"versionSpooferIndexSet") ? ytpInt(@"versionSpooferIndex") : (NSInteger)versions.count - 1;
-        if (idx < 0 || idx >= (NSInteger)versions.count) idx = (NSInteger)versions.count - 1;
-        NSString *spoofed = versions[idx];
-        if ([arg1 isEqualToString:spoofed]) {
+        NSInteger idx = [[NSUserDefaults standardUserDefaults] integerForKey:@"versionSpooferIndex"];
+        if (idx >= 0 && idx < (NSInteger)versions.count && [arg1 isEqualToString:versions[idx]]) {
             arg1 = [[NSBundle mainBundle] infoDictionary][@"CFBundleShortVersionString"];
         }
     }
