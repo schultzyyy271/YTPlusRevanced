@@ -1,0 +1,25 @@
+BUILD INSTRUCTIONS
+==================
+
+Use this exact command (same as always):
+
+  THEOS_PACKAGE_SCHEME=rootless make clean package DEBUG=0 FINALPACKAGE=1
+
+What was fixed from v1.0 to this version:
+- YTPlus.x: Fixed Logos preprocessor error (block literal passed to %orig)
+- YTPlus.x: Added Stop Doom Scrolling hooks on correct class (YTReelWatchRootViewController)
+- YTPlus.x: Fixed download button hook on correct class (YTPlayabilityResolutionUserActionUIControllerImpl)
+- YTPlus.x: Added Download Manager with n-cipher decryption (JavaScriptCore loaded via dlopen, not linked)
+- YTPlus.h: Fixed duplicate MLFormat interface, added MLStreamingData, fixed declaration ordering
+- Settings.x: Fixed section insertion to appear in "Tweaks" group above Account (insert after @(1))
+- Makefile: Added -Wl,-undefined,dynamic_lookup -Wl,-no_implicit_dylibs to prevent bad load commands
+- Tweaks/iSponsorBlock/Makefile: Same LDFLAGS fix, proper export of THEOS_PACKAGE_SCHEME
+
+WHY THE PREVIOUS CRASH HAPPENED:
+The previous Claude session tried to fix the LC_LOAD_UPWARD_DYLIB issue by binary-patching 
+the compiled dylibs (changing load command bytes directly). This corrupted iSponsorBlock.dylib's
+load command string offset, causing dyld to reject it on launch with:
+  "load command #12 string offset (16384) outside its size (24)"
+
+The fix is simply to rebuild from source - the Makefiles already have the correct LDFLAGS
+that prevent the bad load command from being generated in the first place.

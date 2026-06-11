@@ -5,7 +5,6 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import <dlfcn.h>
-#import "YTPlus.h"
 
 #define YT_BUNDLE_ID @"com.google.ios.youtube"
 #define YT_NAME      @"YouTube"
@@ -35,18 +34,6 @@ static NSString *accessGroupID() {
 %hook YTVersionUtils
 + (NSString *)appName { return YT_NAME; }
 + (NSString *)appID   { return YT_BUNDLE_ID; }
-+ (NSString *)appVersion {
-    NSArray *versions = @[
-        @"21.16.2", @"21.15.2", @"21.14.3", @"21.13.3", @"21.12.2",
-        @"21.11.3", @"21.10.3", @"21.09.3", @"21.08.3", @"21.07.4",
-        @"21.06.2", @"21.05.3", @"21.04.2", @"21.03.2", @"21.02.3",
-        @"21.01.3", @"20.50.10"
-    ];
-    if (!ytpBool(@"versionSpooferEnabled")) return %orig;
-    NSInteger idx = ytpInt(@"versionSpooferIndex");
-    if (idx < 0 || idx >= (NSInteger)versions.count) return %orig;
-    return versions[idx];
-}
 %end
 
 %hook GCKBUtils
