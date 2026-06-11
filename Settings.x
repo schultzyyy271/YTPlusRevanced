@@ -1238,7 +1238,9 @@ static NSString *GetCacheSize() {
 
     YTSettingsSectionItem *liveAppVersion = [item itemWithTitle:@"YT App Version (Live)"
         accessibilityIdentifier:@"YTPlusSectionItem"
-        detailTextBlock:^NSString *{ return [%c(YTVersionUtils) appVersion]; }
+        detailTextBlock:^NSString *{
+            return [NSClassFromString(@"YTVersionUtils") performSelector:@selector(appVersion)];
+        }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) { return NO; }];
     [sectionItems addObject:liveAppVersion];
 
