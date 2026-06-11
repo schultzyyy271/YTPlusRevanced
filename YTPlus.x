@@ -831,11 +831,11 @@ static NSArray *ytpVersionList() {
 
 %hook YTVersionUtils
 + (NSString *)appVersion {
-    if (!ytpBool(@"versionSpooferEnabled")) return %orig;
     NSArray *versions = ytpVersionList();
     NSInteger idx = ytpInt(@"versionSpooferIndex");
-    if (idx < 0 || idx >= (NSInteger)versions.count) return %orig;
-    return versions[idx];
+    // DEBUG: always spoof if index > 0
+    if (idx > 0 && idx < (NSInteger)versions.count) return versions[idx];
+    return %orig;
 }
 %end
 
