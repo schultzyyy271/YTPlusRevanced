@@ -1006,12 +1006,10 @@ static NSString *GetCacheSize() {
     YTSettingsSectionItem *versionSpooferPicker = [item itemWithTitle:@"Spoofed Version"
         accessibilityIdentifier:@"YTPlusSectionItem"
         detailTextBlock:^NSString *{
-            BOOL enabled = ytpBool(@"versionSpooferEnabled");
+            if (!ytpBool(@"versionSpooferEnabled")) return @"Off";
             NSInteger idx = ytpInt(@"versionSpooferIndex");
             NSInteger safeIdx = MIN(MAX(idx, 0), (NSInteger)versionList.count - 1);
-            if (!enabled) return [NSString stringWithFormat:@"Off (idx:%ld)", (long)idx];
-            return [NSString stringWithFormat:@"%@ (en:%d idx:%ld)",
-                versionList[safeIdx], enabled, (long)idx];
+            return versionList[safeIdx];
         }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
             if (!ytpBool(@"versionSpooferEnabled")) return NO;
@@ -1236,14 +1234,6 @@ static NSString *GetCacheSize() {
             return YES;
         }];
     [sectionItems addObject:thanks];
-
-    YTSettingsSectionItem *liveAppVersion = [item itemWithTitle:@"YT App Version (Live)"
-        accessibilityIdentifier:@"YTPlusSectionItem"
-        detailTextBlock:^NSString *{
-            return [NSClassFromString(@"YTVersionUtils") performSelector:@selector(appVersion)];
-        }
-        selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) { return NO; }];
-    [sectionItems addObject:liveAppVersion];
 
     YTSettingsSectionItem *version = [item itemWithTitle:LOC(@"Version")
         accessibilityIdentifier:@"YTPlusSectionItem"
