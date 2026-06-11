@@ -831,6 +831,7 @@ static NSString *GetCacheSize() {
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
             NSArray *rows = @[
                 [self switchWithTitle:@"RemoveAds" key:@"noAds"],
+                [self switchWithTitle:@"HideMerchShelf" key:@"hideMerchShelf"],
                 [self switchWithTitle:@"BackgroundPlayback" key:@"backgroundPlayback"]
             ];
             YTSettingsPickerViewController *picker = [[%c(YTSettingsPickerViewController) alloc]
@@ -1008,15 +1009,16 @@ static NSString *GetCacheSize() {
         detailTextBlock:^NSString *{
             if (!ytpBool(@"versionSpooferEnabled")) return @"Off";
             NSInteger idx = ytpInt(@"versionSpooferIndex");
-            if (idx < 0 || idx >= (NSInteger)versionList.count) return versionList[0];
-            return versionList[idx];
+            NSInteger safeIdx = MIN(MAX(idx, 0), (NSInteger)versionList.count - 1);
+            return versionList[safeIdx];
         }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
             if (!ytpBool(@"versionSpooferEnabled")) return NO;
             NSMutableArray *rows = [NSMutableArray array];
             [versionList enumerateObjectsUsingBlock:^(NSString *ver, NSUInteger i, BOOL *stop) {
                 [rows addObject:[item checkmarkItemWithTitle:ver titleDescription:nil selectBlock:^BOOL(YTSettingsCell *c, NSUInteger idx) {
-                    ytpSetInt((int)i, @"versionSpooferIndex");
+                    ytpSetInt((int)idx, @"versionSpooferIndex");
+                    ytpSetInt((int)i, @"versionSpooferCapturedI");
                     [settingsVC reloadData];
                     return YES;
                 }]];

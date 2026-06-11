@@ -178,6 +178,8 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
         }
     }
 
+    if (ytpBool(@"hideMerchShelf") && [description containsString:@"merch_shelf"]) return nil;
+
     return %orig;
 }
 %end
@@ -814,46 +816,6 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 // YTVarispeedSwitchController removed in 21.16.2
 // Speed control is now handled via YTPlayerViewController setPlaybackRate:
 
-// ─── App Version Spoofer ──────────────────────────────────────────────────────
-// Spoof the app version reported to YouTube's servers.
-// Useful when a YouTube update breaks hooks — spoof back to the last working version.
-
-static NSArray *ytpVersionList() {
-    static NSArray *versions = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        versions = @[
-            @"21.16.2", @"21.15.2", @"21.14.3", @"21.13.3", @"21.12.2",
-            @"21.11.3", @"21.10.3", @"21.09.3", @"21.08.3", @"21.07.4",
-            @"21.06.2", @"21.05.3", @"21.04.2", @"21.03.2", @"21.02.3",
-            @"21.01.3", @"20.50.10"
-        ];
-    });
-    return versions;
-}
-
-%hook YTVersionUtils
-+ (NSString *)appVersion {
-    if (!ytpBool(@"versionSpooferEnabled")) return %orig;
-    NSArray *versions = ytpVersionList();
-    NSInteger idx = ytpInt(@"versionSpooferIndex");
-    if (idx < 0 || idx >= (NSInteger)versions.count) return %orig;
-    return versions[idx];
-}
-%end
-
-// Show real version in settings UI regardless of spoof
-%hook YTSettingsCell
-- (void)setDetailText:(id)arg1 {
-    NSArray *versions = ytpVersionList();
-    if ([versions containsObject:arg1]) {
-        NSString *realVersion = [[NSBundle mainBundle] infoDictionary][@"CFBundleShortVersionString"];
-        arg1 = realVersion;
-    }
-    %orig(arg1);
-}
-%end
-
 // ─── Snap To Chapter ──────────────────────────────────────────────────────────
 
 %hook YTInlinePlayerBarView
@@ -1195,6 +1157,7 @@ static BOOL isAdDescription(NSString *desc) {
                 NSString *desc = [obj description];
                 if (ytpBool(@"noAds") && isAdDescription(desc)) return YES;
                 if (ytpBool(@"hideShorts") && ([desc containsString:@"shorts_shelf"] || [desc containsString:@"shorts_grid"])) return YES;
+            if (ytpBool(@"hideMerchShelf") && [desc containsString:@"merch_shelf"]) return YES;
                 if (ytpBool(@"noContinueWatching") && [desc containsString:@"horizontal_card_list"]) return YES;
                 return NO;
             }];
@@ -1211,6 +1174,7 @@ static BOOL isAdDescription(NSString *desc) {
             NSString *desc = [obj description];
             if (ytpBool(@"noAds") && isAdDescription(desc)) return YES;
             if (ytpBool(@"hideShorts") && ([desc containsString:@"shorts_shelf"] || [desc containsString:@"shorts_grid"])) return YES;
+            if (ytpBool(@"hideMerchShelf") && [desc containsString:@"merch_shelf"]) return YES;
             if (ytpBool(@"noContinueWatching") && [desc containsString:@"horizontal_card_list"]) return YES;
             return NO;
         }];
