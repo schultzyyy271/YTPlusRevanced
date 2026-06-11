@@ -1006,10 +1006,12 @@ static NSString *GetCacheSize() {
     YTSettingsSectionItem *versionSpooferPicker = [item itemWithTitle:@"Spoofed Version"
         accessibilityIdentifier:@"YTPlusSectionItem"
         detailTextBlock:^NSString *{
-            if (!ytpBool(@"versionSpooferEnabled")) return @"Off";
+            BOOL enabled = ytpBool(@"versionSpooferEnabled");
             NSInteger idx = ytpInt(@"versionSpooferIndex");
             NSInteger safeIdx = MIN(MAX(idx, 0), (NSInteger)versionList.count - 1);
-            return versionList[safeIdx];
+            if (!enabled) return [NSString stringWithFormat:@"Off (idx:%ld)", (long)idx];
+            return [NSString stringWithFormat:@"%@ (en:%d idx:%ld)",
+                versionList[safeIdx], enabled, (long)idx];
         }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
             if (!ytpBool(@"versionSpooferEnabled")) return NO;

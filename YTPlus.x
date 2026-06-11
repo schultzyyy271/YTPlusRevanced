@@ -814,45 +814,6 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 // YTVarispeedSwitchController removed in 21.16.2
 // Speed control is now handled via YTPlayerViewController setPlaybackRate:
 
-// ─── App Version Spoofer ──────────────────────────────────────────────────────
-static NSArray *ytpVersionList() {
-    static NSArray *versions = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        versions = @[
-            @"21.16.2", @"21.15.2", @"21.14.3", @"21.13.3", @"21.12.2",
-            @"21.11.3", @"21.10.3", @"21.09.3", @"21.08.3", @"21.07.4",
-            @"21.06.2", @"21.05.3", @"21.04.2", @"21.03.2", @"21.02.3",
-            @"21.01.3", @"20.50.10"
-        ];
-    });
-    return versions;
-}
-
-%hook YTVersionUtils
-+ (NSString *)appVersion {
-    NSArray *versions = ytpVersionList();
-    NSInteger idx = ytpInt(@"versionSpooferIndex");
-    // DEBUG: always spoof if index > 0
-    if (idx > 0 && idx < (NSInteger)versions.count) return versions[idx];
-    return %orig;
-}
-%end
-
-// Show real version in About settings regardless of spoof
-%hook YTSettingsCell
-- (void)setDetailText:(id)arg1 {
-    if (ytpBool(@"versionSpooferEnabled") && [arg1 isKindOfClass:[NSString class]]) {
-        NSArray *versions = ytpVersionList();
-        NSInteger idx = ytpInt(@"versionSpooferIndex");
-        if (idx >= 0 && idx < (NSInteger)versions.count && [arg1 isEqualToString:versions[idx]]) {
-            arg1 = [[NSBundle mainBundle] infoDictionary][@"CFBundleShortVersionString"];
-        }
-    }
-    %orig(arg1);
-}
-%end
-
 // ─── Snap To Chapter ──────────────────────────────────────────────────────────
 
 %hook YTInlinePlayerBarView
