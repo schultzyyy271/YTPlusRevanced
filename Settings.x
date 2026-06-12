@@ -3,12 +3,6 @@
 
 #import "YTPlus.h"
 
-// Minimal declaration so the live "Reported to YouTube" row can call this
-// directly (ARC-clean) instead of performSelector. The hook lives in Sideloading.x.
-@interface YTVersionUtils : NSObject
-+ (NSString *)appVersion;
-@end
-
 @interface YTSettingsGroupData : NSObject
 @property (nonatomic, assign) NSInteger type;
 - (NSArray <NSNumber *> *)orderedCategories;
@@ -837,7 +831,6 @@ static NSString *GetCacheSize() {
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
             NSArray *rows = @[
                 [self switchWithTitle:@"RemoveAds" key:@"noAds"],
-                [self switchWithTitle:@"HideMerchShelf" key:@"hideMerchShelf"],
                 [self switchWithTitle:@"BackgroundPlayback" key:@"backgroundPlayback"]
             ];
             YTSettingsPickerViewController *picker = [[%c(YTSettingsPickerViewController) alloc]
@@ -1037,7 +1030,14 @@ static NSString *GetCacheSize() {
     YTSettingsSectionItem *versionSpooferLive = [item itemWithTitle:@"Reported to YouTube"
         accessibilityIdentifier:@"YTPlusSectionItem"
         detailTextBlock:^NSString *{
-            NSString *live = [YTVersionUtils appVersion];
+            // Runtime lookup only — never a direct class reference, or dyld will
+            // try to bind _OBJC_CLASS_$_YTVersionUtils at load and abort.
+            Class vu = NSClassFromString(@"YTVersionUtils");
+            if (![vu respondsToSelector:@selector(appVersion)]) return @"?";
+            #pragma clang diagnostic push
+            #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            NSString *live = [vu performSelector:@selector(appVersion)];
+            #pragma clang diagnostic pop
             return live.length ? live : @"?";
         }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) { return NO; }];
@@ -1075,7 +1075,8 @@ static NSString *GetCacheSize() {
         accessibilityIdentifier:@"YTPlusSectionItem"
         detailTextBlock:^NSString *{ return @">"; }
         selectBlock:^BOOL(YTSettingsCell *cell, NSUInteger arg1) {
-            NSArray *rows = @[                [self switchWithTitle:@"PostManager" key:@"postManager"],
+            NSArray *rows = @[                [self switchWithTitle:@"HideMerchShelf" key:@"hideMerchShelf"],
+                [self switchWithTitle:@"PostManager" key:@"postManager"],
                 [self switchWithTitle:@"SaveProfilePhoto" key:@"saveProfilePhoto"],
                 [self switchWithTitle:@"CommentManager" key:@"commentManager"],
                 [self switchWithTitle:@"FixAlbums" key:@"fixAlbums"],

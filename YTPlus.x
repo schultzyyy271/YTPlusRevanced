@@ -149,6 +149,24 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
 - (void)decorateContext:(id)context { if (!ytpBool(@"noAds")) %orig; }
 %end
 
+// Matches the creator shop / "Products in this video" / merch shelf across the
+// element-renderer and section-renderer paths. The on-video shelf is backed by
+// YTIMerchandiseShelfRenderer (per 21.6.2 dump); its element identifier and the
+// protobuf debug-description both vary, so we match the whole family rather than
+// a single token.
+static BOOL isMerchShelfDescription(NSString *desc) {
+    if (!desc) return NO;
+    static NSArray *kw = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        kw = @[@"merch_shelf", @"merchandise_shelf", @"merchandiseShelf",
+               @"shopping_shelf", @"product_shelf", @"products_in_video",
+               @"product_carousel", @"product_engagement_panel", @"shopping_carousel"];
+    });
+    for (NSString *k in kw) if ([desc containsString:k]) return YES;
+    return NO;
+}
+
 %hook YTIElementRenderer
 - (NSData *)elementData {
     if (self.hasCompatibilityOptions && self.compatibilityOptions.hasAdLoggingData && ytpBool(@"noAds")) return nil;
@@ -178,7 +196,7 @@ static void openVideoAsRegular(NSString *videoID, UIView *sourceView, id firstRe
         }
     }
 
-    if (ytpBool(@"hideMerchShelf") && [description containsString:@"merch_shelf"]) return nil;
+    if (ytpBool(@"hideMerchShelf") && isMerchShelfDescription(description)) return nil;
 
     return %orig;
 }
@@ -1157,7 +1175,7 @@ static BOOL isAdDescription(NSString *desc) {
                 NSString *desc = [obj description];
                 if (ytpBool(@"noAds") && isAdDescription(desc)) return YES;
                 if (ytpBool(@"hideShorts") && ([desc containsString:@"shorts_shelf"] || [desc containsString:@"shorts_grid"])) return YES;
-            if (ytpBool(@"hideMerchShelf") && [desc containsString:@"merch_shelf"]) return YES;
+            if (ytpBool(@"hideMerchShelf") && isMerchShelfDescription(desc)) return YES;
                 if (ytpBool(@"noContinueWatching") && [desc containsString:@"horizontal_card_list"]) return YES;
                 return NO;
             }];
@@ -1174,7 +1192,7 @@ static BOOL isAdDescription(NSString *desc) {
             NSString *desc = [obj description];
             if (ytpBool(@"noAds") && isAdDescription(desc)) return YES;
             if (ytpBool(@"hideShorts") && ([desc containsString:@"shorts_shelf"] || [desc containsString:@"shorts_grid"])) return YES;
-            if (ytpBool(@"hideMerchShelf") && [desc containsString:@"merch_shelf"]) return YES;
+            if (ytpBool(@"hideMerchShelf") && isMerchShelfDescription(desc)) return YES;
             if (ytpBool(@"noContinueWatching") && [desc containsString:@"horizontal_card_list"]) return YES;
             return NO;
         }];
