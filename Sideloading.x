@@ -13,6 +13,14 @@
 @interface SSOConfiguration : NSObject
 @end
 
+// Launch gate: never spoof the version during app startup. YouTube's own
+// 21.x code reads +[YTVersionUtils appVersion] while launching and will crash
+// if it sees an older version than the actual binary. We only begin reporting
+// the spoofed version once the app has finished launching, so startup always
+// sees the real version. Network/API requests happen after launch and still
+// get the spoofed value.
+static BOOL ytpLaunchComplete = NO;
+
 %group gSideloading
 
 // ── Keychain access group helper ──────────────────────────────────────────────
@@ -36,6 +44,7 @@ static NSString *accessGroupID() {
 + (NSString *)appName { return YT_NAME; }
 + (NSString *)appID   { return YT_BUNDLE_ID; }
 + (NSString *)appVersion {
+    if (!ytpLaunchComplete) return %orig;              // never spoof during launch
     if (!ytpBool(@"versionSpooferEnabled")) return %orig;
     NSString *spoofed = ytpString(@"versionSpooferValue");
     // Only spoof to a version we actually know about; otherwise report real.
@@ -134,5 +143,18 @@ static BOOL isSelf() {
 
 %ctor {
     BOOL isAppStore = [[NSFileManager defaultManager] fileExistsAtPath:[[NSBundle mainBundle] appStoreReceiptURL].path];
-    if (!isAppStore) %init(gSideloading);
+    if (!isAppStore) {
+        %init(gSideloading);
+        // Flip the spoofer on only once startup is finished (see note above).
+        [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
+                                                          object:nil
+                                                           queue:nil
+                                                      usingBlock:^(NSNotification *note) {
+            // Small settle delay so the first post-launch feed build also sees
+            // the real version; spoof takes effect for subsequent requests.
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                ytpLaunchComplete = YES;
+            });
+        }];
+    }
 }
