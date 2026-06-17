@@ -6,6 +6,7 @@
 #import "Tweak.h"
 #import "TweakSettings.h"
 #import "Vote.h"
+#import "YTPDiag.h"
 
 static NSCache <NSString *, NSDictionary *> *cache;
 
@@ -24,14 +25,20 @@ NSBundle *RYDBundle() {
 
 %hook YTReelWatchLikesController
 
-- (void)updateLikeButtonWithRenderer:(YTILikeButtonRenderer *)renderer {
-    %orig;
-    if (!RYDTweakEnabled()) return;
-    YTQTMButton *dislikeButton = self.dislikeButton;
-    [dislikeButton setTitle:FETCHING forState:UIControlStateNormal];
-    [dislikeButton setTitle:FETCHING forState:UIControlStateSelected];
-    YTLikeStatus likeStatus = renderer.likeStatus;
+// 21.24.3: updateLikeButtonWithRenderer: removed. The controller no longer owns
+// dislikeButton/likeButton — Shorts likes are model/entity-driven and rendered by the Swift
+// ReelBottomActionBar. likeModelForLikeButtonRenderer: builds the YTReelLikeModel that holds
+// the renderer, and the rendered model reads the renderer's count text fields. So we inject
+// RYD dislike counts into those renderer fields here.
+// ⚠️ Best-effort, NEEDS ON-DEVICE VERIFICATION: the RYD fetch is async, so counts may only
+//    appear on a re-render of the Short (model is cached in _videoIDToModelDictionary).
+- (id)likeModelForLikeButtonRenderer:(YTILikeButtonRenderer *)renderer {
+    id model = %orig;
+    YTPDIAG(@"RYD Shorts: likeModelForLikeButtonRenderer fired videoId=%@ enabled=%d", renderer.target.videoId, RYDTweakEnabled());
+    if (!RYDTweakEnabled() || !renderer) return model;
     getVoteFromVideoWithHandler(cache, renderer.target.videoId, maxRetryCount, ^(NSDictionary *data, NSString *error) {
+        YTPDIAG(@"RYD Shorts: vote fetch returned for %@ error=%@ hasDislikeText=%d", renderer.target.videoId, error, renderer.hasDislikeCountText);
+        if (error != nil) return;
         NSString *formattedDislikeCount = getNormalizedDislikes(getDislikeData(data), error);
         NSString *formattedToggledDislikeCount = getNormalizedDislikes(@([getDislikeData(data) unsignedIntegerValue] + 1), error);
         YTIFormattedString *formattedText = [%c(YTIFormattedString) formattedStringWithString:formattedDislikeCount];
@@ -42,38 +49,20 @@ NSBundle *RYDBundle() {
             renderer.dislikeCountWithDislikeText = formattedToggledText;
         if (renderer.hasDislikeCountWithUndislikeText)
             renderer.dislikeCountWithUndislikeText = formattedText;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (likeStatus == YTLikeStatusDislike) {
-                [dislikeButton setTitle:[renderer.dislikeCountWithUndislikeText stringWithFormattingRemoved] forState:UIControlStateNormal];
-                [dislikeButton setTitle:[renderer.dislikeCountText stringWithFormattingRemoved] forState:UIControlStateSelected];
-            } else {
-                [dislikeButton setTitle:[renderer.dislikeCountText stringWithFormattingRemoved] forState:UIControlStateNormal];
-                [dislikeButton setTitle:[renderer.dislikeCountWithDislikeText stringWithFormattingRemoved] forState:UIControlStateSelected];
-            }
-        });
-        if ((ExactLikeNumber() || UseRYDLikeData()) && error == nil) {
-            YTQTMButton *likeButton = self.likeButton;
+        if (ExactLikeNumber() || UseRYDLikeData()) {
             NSString *formattedLikeCount = getNormalizedLikes(getLikeData(data), nil);
             NSString *formattedToggledLikeCount = getNormalizedDislikes(@([getLikeData(data) unsignedIntegerValue] + 1), nil);
-            YTIFormattedString *formattedText = [%c(YTIFormattedString) formattedStringWithString:formattedLikeCount];
-            YTIFormattedString *formattedToggledText = [%c(YTIFormattedString) formattedStringWithString:formattedToggledLikeCount];
+            YTIFormattedString *formattedLikeText = [%c(YTIFormattedString) formattedStringWithString:formattedLikeCount];
+            YTIFormattedString *formattedToggledLikeText = [%c(YTIFormattedString) formattedStringWithString:formattedToggledLikeCount];
             if (renderer.hasLikeCountText)
-                renderer.likeCountText = formattedText;
+                renderer.likeCountText = formattedLikeText;
             if (renderer.hasLikeCountWithLikeText)
-                renderer.likeCountWithLikeText = formattedToggledText;
+                renderer.likeCountWithLikeText = formattedToggledLikeText;
             if (renderer.hasLikeCountWithUnlikeText)
-                renderer.likeCountWithUnlikeText = formattedText;
-            dispatch_async(dispatch_get_main_queue(), ^{
-                if (likeStatus == YTLikeStatusLike) {
-                    [likeButton setTitle:[renderer.likeCountWithUnlikeText stringWithFormattingRemoved] forState:UIControlStateNormal];
-                    [likeButton setTitle:[renderer.likeCountText stringWithFormattingRemoved] forState:UIControlStateSelected];
-                } else {
-                    [likeButton setTitle:[renderer.likeCountText stringWithFormattingRemoved] forState:UIControlStateNormal];
-                    [likeButton setTitle:[renderer.likeCountWithLikeText stringWithFormattingRemoved] forState:UIControlStateSelected];
-                }
-            });
+                renderer.likeCountWithUnlikeText = formattedLikeText;
         }
     });
+    return model;
 }
 
 %end

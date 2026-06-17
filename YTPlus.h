@@ -367,6 +367,11 @@ static inline NSArray<NSString *> *ytpSpoofVersionList(void) {
 // ─── Stop Doom Scrolling ───────────────────────────────────────────────────────
 
 @interface YTFormattedStringLabel : UILabel
+- (BOOL)forceRTLTextAlignment;
+@end
+
+@interface YTCommentsHeaderView : UIView
+- (UIView *)sortMenuButton;
 @end
 
 @interface YTActionSheetHeaderView : UIView

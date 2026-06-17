@@ -10,7 +10,7 @@ on:
       youtube_version:
         description: 'YouTube version to target'
         required: false
-        default: '21.16.2'
+        default: '21.24.3'
       scheme:
         description: 'Package scheme'
         type: choice
@@ -26,13 +26,19 @@ on:
 
 env:
   THEOS: ${{ github.workspace }}/theos
-  YOUTUBE_VERSION: ${{ inputs.youtube_version || '21.16.2' }}
+  YOUTUBE_VERSION: ${{ inputs.youtube_version || '21.24.3' }}
   SCHEME: ${{ inputs.scheme || 'rootless' }}
 
 jobs:
   build:
-    name: Build deb (${{ inputs.scheme || 'rootless' }})
+    name: Build deb (${{ inputs.scheme || 'rootless' }}, ${{ matrix.diag && 'diag' || 'release' }})
     runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        diag: [false, true]
+    env:
+      DIAG: ${{ matrix.diag && '1' || '0' }}
 
     steps:
       # ── 1. Checkout ────────────────────────────────────────────────────────
@@ -83,9 +89,11 @@ jobs:
             rootful)  unset THEOS_PACKAGE_SCHEME ;;
           esac
 
+          echo "Building with DIAG=${DIAG}"
           make clean package \
             DEBUG=0 \
             FINALPACKAGE=1 \
+            DIAG="${DIAG}" \
             YOUTUBE_VERSION="${YOUTUBE_VERSION}"
 
       # ── 5. Verify deb has the dylib ───────────────────────────────────────────
@@ -125,8 +133,12 @@ jobs:
         run: |
           mkdir -p artifacts
           DEB=$(find packages/ .theos/debs/ -name "*.deb" 2>/dev/null | head -1)
-          cp "$DEB" artifacts/
-          echo "deb_name=$(basename "$DEB")" >> "$GITHUB_OUTPUT"
+          SUFFIX=""
+          [ "$DIAG" = "1" ] && SUFFIX="-DIAG"
+          BASE=$(basename "$DEB" .deb)
+          OUT="${BASE}${SUFFIX}.deb"
+          cp "$DEB" "artifacts/${OUT}"
+          echo "deb_name=${OUT}" >> "$GITHUB_OUTPUT"
 
       - name: Upload deb
         uses: actions/upload-artifact@v4
@@ -169,5 +181,5 @@ jobs:
           draft: false
           prerelease: false
         env:
-          YOUTUBE_VERSION: ${{ inputs.youtube_version || '21.16.2' }}
+          YOUTUBE_VERSION: ${{ inputs.youtube_version || '21.24.3' }}
           SCHEME: ${{ inputs.scheme || 'rootless' }}

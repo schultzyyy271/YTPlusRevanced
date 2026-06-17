@@ -1,7 +1,7 @@
 Package: com.community.youtubeplusrevanced
 Name: YouTubePlusRevanced
 Depends: mobilesubstrate
-Version: 1.0.0
+Version: 1.0.1
 Architecture: iphoneos-arm
 Description: YouTube enhancer rebuilt from YTLite open source — 100+ features, no subscription required.
 Maintainer: Community

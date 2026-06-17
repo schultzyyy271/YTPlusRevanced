@@ -5,9 +5,9 @@ A flexible enhancer for YouTube on iOS, featuring over a hundred customizable op
 
 | | |
 |---|---|
-| **Latest confirmed** | 21.16.2 |
-| **Date tested** | June 12, 2026 |
-| **YouTube Plus Revanced version** | beta5 |
+| **Latest confirmed** | 21.24.3 |
+| **Date tested** | June 17, 2026 |
+| **YouTube Plus Revanced version** | beta6 |
 
 ---
 
@@ -45,21 +45,23 @@ A flexible enhancer for YouTube on iOS, featuring over a hundred customizable op
 
 ---
 
-## Known Non-Functional Toggles (YouTube 21.16.2)
+## Toggle Status (YouTube 21.24.3)
 
-The following toggles are present in settings but do not work because YouTube 21.16.2 removed the underlying methods they hooked. They are marked with `❌ BROKEN` in the source code.
+The toggles below broke on 21.16.2 when YouTube removed the methods they hooked. They were re-fixed for 21.24.3 by re-deriving the new hook points from the binary (IDA). Status:
 
-| Toggle | Feature | Reason |
+| Toggle | Feature | 21.24.3 fix |
 |---|---|---|
-| `noFreeZoom` | Disable pinch-to-zoom | `videoZoomFreeZoomEnabledGlobalConfig` removed from YTColdConfig |
-| `hideSortComments` | Hide comment sort chips | `enableChipsInTheCommentsHeaderIos` removed |
-| `stockVolumeHUD` | Use stock iOS volume slider | `iosUseSystemVolumeControlInFullscreen` removed |
-| `hideShortsLike` | Hide like button on shorts | Shorts buttons moved to new ShortsBottomActionBar system |
-| `hideShortsDislike` | Hide dislike on shorts | Same |
-| `hideShortsComments` | Hide comments on shorts | Same |
-| `hideShortsRemix` | Hide remix on shorts | Same |
-| `hideShortsAvatars` | Hide avatars on shorts | Same |
-| `disableRTL` | Disable right-to-left text | `NSParagraphStyle` methods removed |
+| `noFreeZoom` | Disable pinch-to-zoom | ✅ Config renamed → now hooks `YTColdConfig.videoZoomFreeZoomEnabled` |
+| `hideSortComments` | Hide comment sort chips | ✅ Hides `YTCommentsHeaderView.sortMenuButton` (config gone) |
+| `stockVolumeHUD` | Use stock iOS volume HUD | ✅ Forces `YTWatchLayerViewController.volumeBarViewCanDisplayVolumeBar:` → NO, suppressing YT's custom bar |
+| `disableRTL` | Disable right-to-left text | 🟡 Partial — hooks `YTFormattedStringLabel.forceRTLTextAlignment` (covers YT formatted labels only; `NSParagraphStyle` methods stay removed) |
+| `hideShortsLike` | Hide like button on shorts | 🟠 Best-effort — see note below |
+| `hideShortsDislike` | Hide dislike on shorts | 🟠 Best-effort |
+| `hideShortsComments` | Hide comments on shorts | 🟠 Best-effort |
+| `hideShortsRemix` | Hide remix on shorts | 🟠 Best-effort |
+| `hideShortsAvatars` | Hide avatars on shorts | 🟠 Best-effort |
+
+**Shorts buttons (🟠):** The Shorts action bar is now a Swift component (`YTReelBottomActionBarView`) with no per-button ObjC selectors. The fix walks the view tree in `layoutSubviews` and hides buttons by `accessibilityLabel`. The match substrings are best-effort guesses and are locale-dependent — capture the real labels with a diagnostic build (see below). These remain marked `⚠️` in Settings until verified.
 
 ---
 
@@ -79,10 +81,48 @@ python3 VERIFY_FIX.py .theos/obj/YouTubePlusRevanced.dylib
 
 ## Sideloading
 
-Use [Sideloadly](https://sideloadly.io) to inject the dylibs and bundles into a decrypted YouTube 21.16.2 IPA. The `.deb` contains:
+Use [Sideloadly](https://sideloadly.io) to inject the dylibs and bundles into a decrypted YouTube 21.24.3 IPA. The `.deb` contains:
 
 * `YouTubePlusRevanced.dylib` + `.plist` — main tweak
 * `YouTubePlusRevanced.bundle` — localization and assets
+
+---
+
+## Diagnostic build (verifying runtime-dependent features)
+
+Some fixes (Shorts button hiding, RYD Shorts dislikes, the comments/volume hooks) depend on
+runtime behavior that can't be confirmed from the binary alone. Instead of rebuild-and-guess
+cycles, build **once** with diagnostics on:
+
+```bash
+THEOS_PACKAGE_SCHEME=rootless make clean package DEBUG=0 FINALPACKAGE=1 DIAG=1
+```
+
+Then, in a single session:
+
+1. Open a normal video, open its **comments**, open a **Short**, and open **YouTube Settings**.
+2. **Shake the device.** An alert confirms how many diagnostic lines were copied to the
+   clipboard. Paste that text back to the dev.
+
+The diagnostics include:
+
+* **Hook binding self-check** (runs ~4s after launch): iterates every app hook in the project
+  (`YTPDiagHooks.h`, auto-generated) and verifies each `(class, selector)` still resolves to a
+  method in the installed YouTube binary. Prints `UNBOUND`/`MISSING CLASS` for any dead hook and
+  a `bound / unbound / missing-class` summary. ⚠️ Intentional version-fallback hooks (old
+  `MLPlayerPoolImpl` signatures, `YTLikeService`, the pre-21.24.3 init variants, etc.) appear
+  `UNBOUND` *by design* — what matters is that each feature's **current-signature** hook binds.
+* **Fire logs** for the behaviorally-uncertain hooks (noFreeZoom, hideSortComments, stockVolumeHUD,
+  disableRTL, RYD Shorts, YouPiP autonav) with their key values.
+* **Shorts action-bar dump**: every button's class / `accessibilityLabel` / `accessibilityIdentifier`,
+  so the Shorts-hide match strings can be set to the real values.
+
+All output is also written to `<app sandbox>/Documents/YTPlusDiag.log` and `NSLog`'d with `[YTPDIAG]`.
+
+`DIAG=1` is opt-in; normal builds compile the diagnostics out entirely (zero overhead).
+
+To regenerate `YTPDiagHooks.h` after adding/removing hooks, re-run the awk extractor over the
+project sources (the same one used to audit hooks) and rebuild the `kYTPHookPairs` array.
 
 ---
 

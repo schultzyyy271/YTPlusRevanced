@@ -1,5 +1,6 @@
 #import "Header.h"
 #import "YouPiP_Compat.h"
+#import "YTPDiag.h"
 #import <version.h>
 
 extern BOOL TweakEnabled();
@@ -84,6 +85,15 @@ YTPlayerPIPController *initPlayerPiPControllerIfNeeded(YTPlayerPIPController *co
 
 - (instancetype)initWithParentResponder:(id)arg1 config:(id)arg2 lastActionController:(id)arg3 reachabilityController:(id)arg4 endscreenDelegate:(id)arg5 {
     self = %orig;
+    if (self && [self valueForKey:@"_pipController"] == nil)
+        [self setValue:InjectMLPIPController() forKey:@"_pipController"];
+    return self;
+}
+
+// 21.24.3: lastActionController: → lastActionProvider:, imageService: dropped
+- (instancetype)initWithParentResponder:(id)arg1 config:(id)arg2 lastActionProvider:(id)arg3 reachabilityController:(id)arg4 endscreenDelegate:(id)arg5 {
+    self = %orig;
+    YTPDIAG(@"YouPiP: autonav initWithParentResponder...lastActionProvider fired (21.24.3 path)");
     if (self && [self valueForKey:@"_pipController"] == nil)
         [self setValue:InjectMLPIPController() forKey:@"_pipController"];
     return self;
@@ -202,6 +212,11 @@ static MLAVPlayer *makeAVPlayer(id self, MLVideo *video, MLInnerTubePlayerConfig
     return makeAVPlayer(self, video, playerConfig, stickySettings);
 }
 
+// 21.24.3: added trailing recompositeProvider:
+- (id)acquirePlayerForVideo:(MLVideo *)video playerConfig:(MLInnerTubePlayerConfig *)playerConfig stickySettings:(MLPlayerStickySettings *)stickySettings latencyLogger:(id)latencyLogger reloadContext:(id)reloadContext mediaPlayerResources:(id)mediaPlayerResources recompositeProvider:(id)recompositeProvider {
+    return makeAVPlayer(self, video, playerConfig, stickySettings);
+}
+
 - (MLAVPlayerLayerView *)playerViewForVideo:(MLVideo *)video playerConfig:(MLInnerTubePlayerConfig *)playerConfig {
     MLDefaultPlayerViewFactory *factory = [self valueForKey:@"_playerViewFactory"];
     return [factory AVPlayerViewForVideo:video playerConfig:playerConfig];
@@ -217,6 +232,11 @@ static MLAVPlayer *makeAVPlayer(id self, MLVideo *video, MLInnerTubePlayerConfig
 }
 
 - (BOOL)canQueuePlayerPlayVideo:(MLVideo *)video playerConfig:(MLInnerTubePlayerConfig *)playerConfig reloadContext:(id)reloadContext {
+    return NO;
+}
+
+// 21.24.3: added trailing error:(NSError **)
+- (BOOL)canQueuePlayerPlayVideo:(MLVideo *)video playerConfig:(MLInnerTubePlayerConfig *)playerConfig reloadContext:(id)reloadContext error:(id *)error {
     return NO;
 }
 

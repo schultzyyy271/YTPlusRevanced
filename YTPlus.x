@@ -1,6 +1,6 @@
 // YTPlus.x
 // Rebuilt from YTLite open-source by the community.
-// Updated for YouTube 21.16.2 (iOS 16+).
+// Updated for YouTube 21.24.3 (iOS 16+).
 // Mod by Schultzy — built on YTLite open-source base.
 #include <dlfcn.h>
 #import <objc/message.h>
@@ -10,6 +10,77 @@
 #import <stdarg.h>
 
 #import "YTPlus.h"
+#import "YTPDiag.h"
+#import "YTPDiagHooks.h"
+
+#if YTP_DIAG
+// ─── Diagnostics (YTP_DIAG=1 builds only) ─────────────────────────────────────
+static NSMutableArray<NSString *> *gYTPDiag;
+static NSMutableSet<NSString *> *gYTPDiagSeen;
+static NSLock *YTPDiagLock(void) {
+    static NSLock *lock; static dispatch_once_t once;
+    dispatch_once(&once, ^{ lock = [NSLock new]; gYTPDiag = [NSMutableArray array]; gYTPDiagSeen = [NSMutableSet set]; });
+    return lock;
+}
+void YTPDiagLog(NSString *fmt, ...) {
+    va_list ap; va_start(ap, fmt);
+    NSString *msg = [[NSString alloc] initWithFormat:fmt arguments:ap];
+    va_end(ap);
+    NSLock *lock = YTPDiagLock();
+    [lock lock];
+    [gYTPDiag addObject:msg];
+    if (gYTPDiag.count > 5000) [gYTPDiag removeObjectsInRange:NSMakeRange(0, 1000)];
+    [lock unlock];
+    NSLog(@"[YTPDIAG] %@", msg);
+    NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject stringByAppendingPathComponent:@"YTPlusDiag.log"];
+    FILE *f = fopen(path.UTF8String, "a");
+    if (f) { fprintf(f, "%s\n", msg.UTF8String); fclose(f); }
+}
+NSString *YTPDiagText(void) {
+    NSLock *lock = YTPDiagLock();
+    [lock lock];
+    NSString *t = [gYTPDiag componentsJoinedByString:@"\n"];
+    [lock unlock];
+    return t ?: @"";
+}
+void YTPDiagDumpTree(id root, NSString *tag) {
+    if (![root isKindOfClass:[UIView class]]) return;
+    for (UIView *v in [(UIView *)root subviews]) {
+        NSString *label = v.accessibilityLabel ?: @"";
+        NSString *ident = v.accessibilityIdentifier ?: @"";
+        NSString *key = [NSString stringWithFormat:@"%@|%@|%@|%@", tag, NSStringFromClass(v.class), label, ident];
+        NSLock *lock = YTPDiagLock();
+        [lock lock];
+        BOOL fresh = ![gYTPDiagSeen containsObject:key];
+        if (fresh) [gYTPDiagSeen addObject:key];
+        [lock unlock];
+        if (fresh && (label.length || ident.length))
+            YTPDiagLog(@"[%@] %@ label=\"%@\" id=\"%@\" hidden=%d", tag, NSStringFromClass(v.class), label, ident, v.hidden);
+        YTPDiagDumpTree(v, tag);
+    }
+}
+// Automatic on-device binding check: for every app hook in the project, verify the
+// (class, selector) still resolves to a method in the installed YouTube binary. UNBOUND
+// means the hook is dead (method removed/renamed). NOTE: intentional version-fallback
+// hooks (old MLPlayerPoolImpl signatures, YTLikeService, etc.) will show UNBOUND by design —
+// what matters is whether a feature's CURRENT-signature hook binds.
+static void YTPDiagRunHookSelfCheck(void) {
+    YTPDiagLog(@"===== HOOK BINDING SELF-CHECK (%lu app hooks) =====", (unsigned long)kYTPHookPairCount);
+    int ok = 0, unbound = 0, missingCls = 0;
+    for (size_t i = 0; i < kYTPHookPairCount; i++) {
+        Class c = objc_getClass(kYTPHookPairs[i][0]);
+        SEL sel = sel_registerName(kYTPHookPairs[i][1]);
+        if (!c) { missingCls++; YTPDiagLog(@"MISSING CLASS: %s", kYTPHookPairs[i][0]); continue; }
+        if (class_getInstanceMethod(c, sel) || class_getClassMethod(c, sel)) ok++;
+        else { unbound++; YTPDiagLog(@"UNBOUND: [%s %s]", kYTPHookPairs[i][0], kYTPHookPairs[i][1]); }
+    }
+    YTPDiagLog(@"===== SELF-CHECK DONE: %d bound, %d unbound, %d missing-class =====", ok, unbound, missingCls);
+}
+
+// NOTE: the shake-to-export %hook UIWindow lives near the end of this file (before %ctor),
+// NOT here. If it were the first %hook in the file, Logos would emit its preamble inside this
+// #if YTP_DIAG block and a DIAG=0 build would strip it, breaking every later hook.
+#endif
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -723,8 +794,12 @@ static BOOL isMerchShelfDescription(NSString *desc) {
 - (BOOL)removePreviousPaddleForSingletonVideos { return ytpBool(@"hidePrevNext") ? YES : %orig; }
 - (BOOL)replaceNextPaddleWithFastForwardButtonForSingletonVods { return ytpBool(@"replacePrevNext") ? YES : %orig; }
 - (BOOL)replacePreviousPaddleWithRewindButtonForSingletonVods { return ytpBool(@"replacePrevNext") ? YES : %orig; }
-// videoZoomFreeZoomEnabledGlobalConfig — removed in 21.16.2
-// enableChipsInTheCommentsHeaderIos — removed in 21.16.2
+// noFreeZoom — config renamed videoZoomFreeZoomEnabledGlobalConfig → videoZoomFreeZoomEnabled in 21.24.3
+- (BOOL)videoZoomFreeZoomEnabled {
+    YTPDIAG(@"noFreeZoom: videoZoomFreeZoomEnabled fired (noFreeZoom=%d, orig=%d)", ytpBool(@"noFreeZoom"), %orig);
+    return ytpBool(@"noFreeZoom") ? NO : %orig;
+}
+// enableChipsInTheCommentsHeaderIos — still removed in 21.24.3 (hideSortComments handled via view hook)
 // shouldUseAppThemeSetting — removed in 21.16.2
 // isLandscapeEngagementPanelSwipeRightToDismissEnabled — removed in 21.16.2
 - (BOOL)enableHideChipsInTheCommentsHeaderOnScrollIos { return ytpBool(@"stickSortComments") ? NO : %orig; }
@@ -733,9 +808,77 @@ static BOOL isMerchShelfDescription(NSString *desc) {
 // Shorts config
 - (BOOL)iosEnableVideoPlayerScrubber { return ytpBool(@"shortsProgress") ? YES : %orig; }
 // mobileShortsTabInlined — removed in 21.16.2
-// iosUseSystemVolumeControlInFullscreen — removed in 21.16.2
+// iosUseSystemVolumeControlInFullscreen — removed; stockVolumeHUD now handled via YTWatchLayerViewController gate (below)
 // Shorts ad blocking — all removed in 21.16.2, ads blocked at overlay/data level instead
 - (BOOL)shortsConsumptionClientGlobalConfigEnableBackgroundRenderingOnShortsAds { return ytpBool(@"noAds") ? NO : %orig; }
+%end
+
+// ─── Hide Comment Sort Chips ──────────────────────────────────────────────────
+// 21.24.3: enableChipsInTheCommentsHeaderIos config removed. The sort chip is now the
+// `sortMenuButton` view on YTCommentsHeaderView — hide it directly.
+%hook YTCommentsHeaderView
+- (void)layoutSubviews {
+    %orig;
+    YTPDIAG(@"CommentsHeader.layoutSubviews sortMenuButton=%@ hideSortComments=%d", [self sortMenuButton], ytpBool(@"hideSortComments"));
+    if (ytpBool(@"hideSortComments")) [[self sortMenuButton] setHidden:YES];
+}
+%end
+
+// ─── Stock Volume HUD ─────────────────────────────────────────────────────────
+// 21.24.3: iosUseSystemVolumeControlInFullscreen config removed. The custom volume bar
+// is gated by this delegate method (returns YES only in fullscreen/casting). Forcing NO
+// suppresses YT's custom bar so the iOS system volume HUD shows instead.
+%hook YTWatchLayerViewController
+- (BOOL)volumeBarViewCanDisplayVolumeBar:(id)arg1 {
+    BOOL orig = %orig;
+    YTPDIAG(@"stockVolumeHUD gate fired: orig=%d stockVolumeHUD=%d", orig, ytpBool(@"stockVolumeHUD"));
+    return ytpBool(@"stockVolumeHUD") ? NO : orig;
+}
+%end
+
+// ─── Hide Shorts Action-Bar Buttons ───────────────────────────────────────────
+// 21.24.3: the Shorts buttons moved into YTReelBottomActionBarView, a *Swift* component
+// (.../BottomActionBar/YTReelBottomActionBarView.swift) that builds its buttons on the
+// MainActor. There are no per-button ObjC selectors to hook, so we walk the view tree in
+// layoutSubviews and hide buttons by accessibilityLabel.
+//
+// ⚠️ BEST-EFFORT / NEEDS ON-DEVICE VERIFICATION: the label substrings below are guesses and
+// are locale-dependent. Build with YTP_DIAG=1, open a Short, then shake the device — the
+// diagnostics (every button's class/label/identifier) are copied to your clipboard. Adjust
+// the substrings to match (ideally use a locale-independent accessibilityIdentifier if shown).
+
+static BOOL YTPLabelMatchesAny(NSString *label, NSArray<NSString *> *needles) {
+    if (label.length == 0) return NO;
+    for (NSString *n in needles)
+        if ([label rangeOfString:n options:NSCaseInsensitiveSearch].location != NSNotFound) return YES;
+    return NO;
+}
+
+static void YTPHideShortsButtons(UIView *root) {
+    for (UIView *sub in root.subviews) {
+        NSString *label = sub.accessibilityLabel;
+        if (label.length) {
+            BOOL hid = NO;
+            if (ytpBool(@"hideShortsLike")     && YTPLabelMatchesAny(label, @[@"like"])
+                                              && !YTPLabelMatchesAny(label, @[@"dislike"]))         { sub.hidden = YES; hid = YES; }
+            if (ytpBool(@"hideShortsDislike")  && YTPLabelMatchesAny(label, @[@"dislike"]))         { sub.hidden = YES; hid = YES; }
+            if (ytpBool(@"hideShortsComments") && YTPLabelMatchesAny(label, @[@"comment"]))         { sub.hidden = YES; hid = YES; }
+            if (ytpBool(@"hideShortsRemix")    && YTPLabelMatchesAny(label, @[@"remix"]))           { sub.hidden = YES; hid = YES; }
+            if (ytpBool(@"hideShortsAvatars")  && YTPLabelMatchesAny(label, @[@"channel", @"avatar", @"profile"])) { sub.hidden = YES; hid = YES; }
+            if (hid) YTPDIAG(@"ShortsBar HID %@ label=\"%@\"", NSStringFromClass(sub.class), label);
+        }
+        if (sub.subviews.count) YTPHideShortsButtons(sub);
+    }
+}
+
+%hook YTReelBottomActionBarView
+- (void)layoutSubviews {
+    %orig;
+    YTPDIAG_TREE(self, @"ShortsBar");
+    if (ytpBool(@"hideShortsLike") || ytpBool(@"hideShortsDislike") || ytpBool(@"hideShortsComments") ||
+        ytpBool(@"hideShortsRemix") || ytpBool(@"hideShortsAvatars"))
+        YTPHideShortsButtons((UIView *)self);
+}
 %end
 
 %hook YTHotConfig
@@ -4362,9 +4505,17 @@ static void manageSpeedmaster(UILongPressGestureRecognizer *gesture, YTMainAppVi
 
 // ─── Disable RTL ──────────────────────────────────────────────────────────────
 
-%hook NSParagraphStyle
-+ (NSWritingDirection)defaultWritingDirectionForLanguage:(id)lang { return ytpBool(@"disableRTL") ? NSWritingDirectionLeftToRight : %orig; } // ❌ BROKEN: method removed — disableRTL toggle non-functional
-+ (NSWritingDirection)_defaultWritingDirection { return ytpBool(@"disableRTL") ? NSWritingDirectionLeftToRight : %orig; } // ❌ BROKEN: method removed
+// 21.24.3: NSParagraphStyle writing-direction methods removed. Closest replacement is
+// YTFormattedStringLabel.forceRTLTextAlignment — forcing NO keeps formatted-string labels
+// left-aligned. (Partial: only covers YT formatted labels, not all text in the app.)
+%hook YTFormattedStringLabel
+- (BOOL)forceRTLTextAlignment {
+#if YTP_DIAG
+    static BOOL logged = NO;
+    if (!logged) { logged = YES; YTPDIAG(@"disableRTL: forceRTLTextAlignment fired (disableRTL=%d, orig=%d)", ytpBool(@"disableRTL"), %orig); }
+#endif
+    return ytpBool(@"disableRTL") ? NO : %orig;
+}
 %end
 
 // ─── Fix Album Covers (Russia/CDN fix) ───────────────────────────────────────
@@ -4392,6 +4543,31 @@ static NSURL *fixedCoverURL(NSURL *originalURL) {
 
 // ─── Constructor ──────────────────────────────────────────────────────────────
 
+#if YTP_DIAG
+// Shake-to-export: copies all collected diagnostics to the clipboard. In a %group (not
+// ungrouped) so it is registered ONLY via the explicit %init(Diag) below — an ungrouped hook
+// would be auto-registered in the main %init, leaving a dangling reference when DIAG=0 strips
+// this block. Also placed near the end so it is never the first %hook (Logos preamble).
+%group Diag
+%hook UIWindow
+- (void)motionEnded:(UIEventSubtype)motion withEvent:(UIEvent *)event {
+    %orig;
+    if (motion != UIEventSubtypeMotionShake) return;
+    NSString *text = YTPDiagText();
+    [UIPasteboard generalPasteboard].string = text;
+    NSInteger lines = text.length ? [text componentsSeparatedByString:@"\n"].count : 0;
+    UIViewController *top = self.rootViewController;
+    while (top.presentedViewController) top = top.presentedViewController;
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"YTPlus Diagnostics"
+        message:[NSString stringWithFormat:@"%ld lines copied to clipboard.\nPaste to the dev.", (long)lines]
+        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [top presentViewController:a animated:YES completion:nil];
+}
+%end
+%end
+#endif
+
 %ctor {
     // Conflict guard: shorts-only mode can't coexist with removing/replacing shorts tab
     if (ytpBool(@"shortsOnlyMode") && (ytpBool(@"removeShorts") || ytpBool(@"reExplore"))) {
@@ -4406,4 +4582,11 @@ static NSURL *fixedCoverURL(NSURL *originalURL) {
         });
     }
     %init;
+#if YTP_DIAG
+    %init(Diag);
+    // Run the binding self-check a few seconds after launch (once all classes are realized).
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        YTPDiagRunHookSelfCheck();
+    });
+#endif
 }

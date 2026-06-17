@@ -8,9 +8,16 @@ FINALPACKAGE = 1
 
 # ── Version ───────────────────────────────────────────────────────────────────
 ifndef YOUTUBE_VERSION
-YOUTUBE_VERSION = 21.16.2
+YOUTUBE_VERSION = 21.24.3
 endif
 PACKAGE_VERSION = $(YOUTUBE_VERSION)
+
+# ── Diagnostic build ──────────────────────────────────────────────────────────
+# Build with `DIAG=1` to enable the one-shot diagnostic logger (see YTPDiag.h).
+# Shake the device after testing to copy all diagnostics to the clipboard.
+ifeq ($(DIAG),1)
+DIAG_CFLAG = -DYTP_DIAG=1
+endif
 
 # ── Package metadata ──────────────────────────────────────────────────────────
 TWEAK_NAME       = YouTubePlusRevanced
@@ -81,11 +88,13 @@ $(TWEAK_NAME)_CFLAGS = \
 	-fobjc-arc \
 	-DTWEAK_VERSION=$(PACKAGE_VERSION) \
 	-DSIDELOAD=1 \
+	$(DIAG_CFLAG) \
 	-Wno-deprecated-declarations \
 	-Wno-module-import-in-extern-c \
 	-Wno-unknown-warning-option \
 	-Wno-vla-cxx-extension \
 	-Wno-vla-extension \
+	-I. \
 	-ITweaks/DontEatMyContent \
 	-ITweaks/YTVideoOverlay \
 	-ITweaks/ReturnYouTubeDislike \
