@@ -1311,6 +1311,22 @@ static void autoSkipShorts(YTPlayerViewController *self, YTSingleVideoController
 }
 %end
 
+// CONFIRMED download-tap funnel: -[YTGetDownloadActionCommandHandler executeWithCommand:...]
+// is the handler for the "get download action" command the Download button/menu dispatches. It
+// shows a spinner, reads maximumOfflineVideoQuality, and makes the request whose response decides
+// download-vs-Premium-upsell. Intercept it -> open the YTPlus download manager (free). This is the
+// general download entry, so it covers the 3-dot menu and the action-bar/header button.
+%hook YTGetDownloadActionCommandHandler
+- (void)executeWithCommand:(id)command entry:(id)entry fromView:(UIView *)view sender:(id)sender {
+    if (ytpBool(@"downloadManager") && !ytpBool(@"noPlayerDownloadButton")) {
+        YTPlayerViewController *player = YTPlusCurrentPlayerVC;
+        YTPlusShowDownloadMgr(player, YTPlusPresenter(view, player), view);
+        return;   // skip YouTube's download-action request / Premium upsell
+    }
+    %orig;
+}
+%end
+
 // ─── Hide Player Action Buttons ───────────────────────────────────────────────
 
 static BOOL findCell(ASNodeController *nodeController, NSArray *identifiers) {

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -o pipefail
 export THEOS="$HOME/theos"; export PATH="$THEOS/bin:$PATH"; export THEOS_PACKAGE_SCHEME=rootless
-SRC="/mnt/c/Users/Corey/Downloads/YTPlusRevanced-main"
-DST="$HOME/ytbuild-rel/YTPlusRevanced-main"
+SRC="/mnt/c/Users/Corey/Documents/GitHub/YTPlusRevanced"
+DST="$HOME/ytbuild-rel/YTPlusRevanced"
 OUT="/mnt/c/Users/Corey/Downloads"
 echo "=== syncing to ext4 ==="
 rm -rf "$HOME/ytbuild-rel"; mkdir -p "$DST"
-( cd "$SRC" && tar --exclude=.theos --exclude=packages -cf - . ) | ( cd "$DST" && tar xf - )
+( cd "$SRC" && tar --exclude=.theos --exclude=packages --exclude=.git -cf - . ) | ( cd "$DST" && tar xf - )
 cd "$DST" || { echo "cd failed"; exit 1; }
 echo "=== Building RELEASE (DIAG=0) ==="
 make clean package DEBUG=0 FINALPACKAGE=1 DIAG=0 YOUTUBE_VERSION=21.24.3 2>&1
