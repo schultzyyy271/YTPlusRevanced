@@ -102,7 +102,10 @@ NSBundle *RYDBundle() {
 int overrideNodeCreation = 0;
 
 static BOOL isVideoScrollableActionBar(ASCollectionView *collectionView) {
-    return [collectionView.accessibilityIdentifier isEqualToString:@"id.video.scrollable_action_bar"];
+    NSString *aid = collectionView.accessibilityIdentifier;
+    // 21.24.3 renamed the actions container: scrollable_action_bar -> detailsactions.view
+    return [aid isEqualToString:@"id.video.scrollable_action_bar"]
+        || [aid isEqualToString:@"id.video.detailsactions.view"];
 }
 
 __strong ELMTextNode *likeTextNode = nil;
@@ -180,6 +183,15 @@ static void setTextColor(NSMutableAttributedString *text) {
 
 - (ELMCellNode *)nodeForItemAtIndexPath:(NSIndexPath *)indexPath {
     ELMCellNode *node = %orig;
+#if YTP_DIAG
+    {
+        NSString *aid = self.accessibilityIdentifier ?: @"";
+        if ([aid containsString:@"action"] || [aid containsString:@"details"]) {
+            YTPDIAG(@"RYD: action-bar collection id=\"%@\" — dumping cell node tree:", aid);
+            YTPDIAG_NODES(node, @"RYD-cell");
+        }
+    }
+#endif
     if (isVideoScrollableActionBar(self) && RYDTweakEnabled()) {
         int pairMode = -1;
         BOOL isDislikeButtonModified = NO;

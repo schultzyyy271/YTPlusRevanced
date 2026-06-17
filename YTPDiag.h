@@ -24,12 +24,17 @@ NSString *YTPDiagText(void);
 // Dump a view subtree (class / accessibilityLabel / accessibilityIdentifier / hidden),
 // each unique tuple logged once per session. Used to discover Shorts button labels.
 void YTPDiagDumpTree(id /* UIView * */ root, NSString *tag);
+// Dump an ASDisplayNode/ELM yoga-node subtree (class / accessibilityIdentifier).
+// Used to discover the new segmented like/dislike button node structure for RYD.
+void YTPDiagDumpNodes(id /* ASDisplayNode * */ node, NSString *tag, int depth);
 #ifdef __cplusplus
 }
 #endif
-#define YTPDIAG(...)            YTPDiagLog(__VA_ARGS__)
-#define YTPDIAG_TREE(root, tag) YTPDiagDumpTree((root), (tag))
+#define YTPDIAG(...)             YTPDiagLog(__VA_ARGS__)
+#define YTPDIAG_TREE(root, tag)  YTPDiagDumpTree((root), (tag))
+#define YTPDIAG_NODES(node, tag) YTPDiagDumpNodes((node), (tag), 0)
 #else
-#define YTPDIAG(...)            do {} while (0)
-#define YTPDIAG_TREE(root, tag) do {} while (0)
+#define YTPDIAG(...)             do {} while (0)
+#define YTPDIAG_TREE(root, tag)  do {} while (0)
+#define YTPDIAG_NODES(node, tag) do {} while (0)
 #endif

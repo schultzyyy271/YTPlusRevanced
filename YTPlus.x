@@ -59,6 +59,26 @@ void YTPDiagDumpTree(id root, NSString *tag) {
         YTPDiagDumpTree(v, tag);
     }
 }
+void YTPDiagDumpNodes(id node, NSString *tag, int depth) {
+    if (!node || depth > 8) return;
+    NSString *cls = NSStringFromClass([node class]);
+    NSString *ident = @"";
+    if ([node respondsToSelector:@selector(accessibilityIdentifier)])
+        ident = [node accessibilityIdentifier] ?: @"";
+    NSString *key = [NSString stringWithFormat:@"N|%@|%d|%@|%@", tag, depth, cls, ident];
+    NSLock *lock = YTPDiagLock();
+    [lock lock];
+    BOOL fresh = ![gYTPDiagSeen containsObject:key];
+    if (fresh) [gYTPDiagSeen addObject:key];
+    [lock unlock];
+    if (fresh) {
+        NSMutableString *pad = [NSMutableString string];
+        for (int i = 0; i < depth; i++) [pad appendString:@"  "];
+        YTPDiagLog(@"[%@]%@%@ id=\"%@\"", tag, pad, cls, ident);
+    }
+    if ([node respondsToSelector:@selector(yogaChildren)])
+        for (id child in [node yogaChildren]) YTPDiagDumpNodes(child, tag, depth + 1);
+}
 // Automatic on-device binding check: for every app hook in the project, verify the
 // (class, selector) still resolves to a method in the installed YouTube binary. UNBOUND
 // means the hook is dead (method removed/renamed). NOTE: intentional version-fallback
@@ -1234,6 +1254,24 @@ static void autoSkipShorts(YTPlayerViewController *self, YTSingleVideoController
 %hook YTDefaultSheetController
 - (void)addAction:(YTActionSheetAction *)action {
     NSString *identifier = [action valueForKey:@"_accessibilityIdentifier"];
+    YTPDIAG(@"3-dot action: id=\"%@\" title=\"%@\"", identifier, [action respondsToSelector:@selector(title)] ? [action performSelector:@selector(title)] : @"?");
+    // ── Video download fix (21.24.3) ──────────────────────────────────────────
+    // YouTube moved the video Download button off the action bar into the 3-dot menu,
+    // where it's a sheet action (id "7"). The old _ASDisplayView offline-button hijack
+    // never fires there, so video download was dead. Swap this action's handler to open
+    // the YTPlus download manager (which already works — Shorts use the same engine).
+    if ([identifier isEqualToString:@"7"]
+        && ytpBool(@"downloadManager") && !ytpBool(@"noPlayerDownloadButton")
+        && [action respondsToSelector:@selector(setHandler:)]) {
+        YTPlayerViewController *player = YTPlusCurrentPlayerVC;   // captured strongly into the block
+        [action setHandler:^{
+            // Let the sheet dismiss first, then present our download menu from the top VC.
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                YTPlayerViewController *p = player ?: YTPlusCurrentPlayerVC;
+                YTPlusShowDownloadMgr(p, YTPlusPresenter(nil, p), nil);
+            });
+        }];
+    }
     NSDictionary *actionsToRemove = @{
         @"7":  @(ytpBool(@"removeDownloadMenu")),
         @"1":  @(ytpBool(@"removeWatchLaterMenu")),

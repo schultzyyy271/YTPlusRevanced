@@ -26,6 +26,11 @@
 // the two can never disagree. Newest first; keep newest-at-top ordering.
 static inline NSArray<NSString *> *ytpSpoofVersionList(void) {
     return @[
+        @"21.24.3",  // confirmed current target
+        // ── 21.17–21.23 patch numbers are BEST-EFFORT (correct any that are wrong) ──
+        @"21.23.4", @"21.22.4", @"21.21.3", @"21.20.4", @"21.19.4",
+        @"21.18.3", @"21.17.4",
+        // ── below are the original confirmed entries ──
         @"21.16.2", @"21.15.2", @"21.14.3", @"21.13.3", @"21.12.2",
         @"21.11.3", @"21.10.3", @"21.09.3", @"21.08.3", @"21.07.4",
         @"21.06.2", @"21.05.3", @"21.04.2", @"21.03.2", @"21.02.3",
@@ -382,6 +387,7 @@ static inline NSArray<NSString *> *ytpSpoofVersionList(void) {
 + (instancetype)actionWithTitle:(NSString *)title iconImage:(UIImage *)image style:(NSInteger)style handler:(void (^)(void))handler;
 + (instancetype)actionWithTitle:(NSString *)title iconImage:(UIImage *)image secondaryIconImage:(UIImage *)secondaryIconImage accessibilityIdentifier:(NSString *)identifier handler:(void (^)(void))handler;
 + (instancetype)actionWithTitle:(NSString *)title titleColor:(UIColor *)titleColor iconImage:(UIImage *)image iconColor:(UIColor *)iconColor disableAutomaticButtonColor:(BOOL)autoColor accessibilityIdentifier:(NSString *)identifier handler:(void (^)(void))handler;
+- (void)setHandler:(void (^)(void))handler;   // 21.24.3 video-download hijack (3-dot menu)
 @end
 
 @interface YTDefaultSheetController : NSObject
