@@ -1255,23 +1255,6 @@ static void autoSkipShorts(YTPlayerViewController *self, YTSingleVideoController
 - (void)addAction:(YTActionSheetAction *)action {
     NSString *identifier = [action valueForKey:@"_accessibilityIdentifier"];
     YTPDIAG(@"3-dot action: id=\"%@\" title=\"%@\"", identifier, [action respondsToSelector:@selector(title)] ? [action performSelector:@selector(title)] : @"?");
-    // ── Video download fix (21.24.3) ──────────────────────────────────────────
-    // YouTube moved the video Download button off the action bar into the 3-dot menu,
-    // where it's a sheet action (id "7"). The old _ASDisplayView offline-button hijack
-    // never fires there, so video download was dead. Swap this action's handler to open
-    // the YTPlus download manager (which already works — Shorts use the same engine).
-    if ([identifier isEqualToString:@"7"]
-        && ytpBool(@"downloadManager") && !ytpBool(@"noPlayerDownloadButton")
-        && [action respondsToSelector:@selector(setHandler:)]) {
-        YTPlayerViewController *player = YTPlusCurrentPlayerVC;   // captured strongly into the block
-        [action setHandler:^{
-            // Let the sheet dismiss first, then present our download menu from the top VC.
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                YTPlayerViewController *p = player ?: YTPlusCurrentPlayerVC;
-                YTPlusShowDownloadMgr(p, YTPlusPresenter(nil, p), nil);
-            });
-        }];
-    }
     NSDictionary *actionsToRemove = @{
         @"7":  @(ytpBool(@"removeDownloadMenu")),
         @"1":  @(ytpBool(@"removeWatchLaterMenu")),
@@ -1282,6 +1265,23 @@ static void autoSkipShorts(YTPlayerViewController *self, YTSingleVideoController
         @"58": @(ytpBool(@"removeReportMenu"))
     };
     if (![actionsToRemove[identifier] boolValue]) %orig;
+}
+%end
+
+// ─── Video Download (21.24.3) ──────────────────────────────────────────────────
+// YT moved the watch-page Download button into the details header / 3-dot menu. Tapping it
+// funnels through -[YTOfflineVideoActionControllerImpl performAction:withVideoID:...] BEFORE the
+// Premium check (confirmed path: YTDetailsHeaderViewController didTapOfflineButton). Intercept it
+// and open the YTPlus download manager instead — free, same engine Shorts use. This replaces the
+// old _ASDisplayView offline-button tap hijack, which no longer fires for videos.
+%hook YTOfflineVideoActionControllerImpl
+- (void)performAction:(NSInteger)action withVideoID:(NSString *)videoID playlistID:(id)playlistID offlineabilityRenderer:(id)renderer fromView:(UIView *)view firstResponder:(id)responder {
+    if (ytpBool(@"downloadManager") && !ytpBool(@"noPlayerDownloadButton") && videoID.length) {
+        YTPlayerViewController *player = YTPlusCurrentPlayerVC;
+        YTPlusShowDownloadMgr(player, YTPlusPresenter(view, player), view);
+        return;   // skip YouTube's offline/Premium flow
+    }
+    %orig;
 }
 %end
 
