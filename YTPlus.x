@@ -1296,6 +1296,21 @@ static void autoSkipShorts(YTPlayerViewController *self, YTSingleVideoController
 }
 %end
 
+// CONFIRMED 3-dot-menu path (free user): tapping Download dispatches the YPC "get offline
+// upsell" endpoint, handled here — it fetches & shows the Premium popup. This is a separate
+// command-handler path (not YTOfflineVideoActionControllerImpl), which is why the earlier
+// hooks never fired. Intercept it and open the YTPlus download manager instead.
+%hook YTYPCGetOfflineUpsellEndpointCommandHandlerImpl
+- (void)executeWithCommand:(id)command entry:(id)entry fromView:(UIView *)view sender:(id)sender {
+    if (ytpBool(@"downloadManager") && !ytpBool(@"noPlayerDownloadButton")) {
+        YTPlayerViewController *player = YTPlusCurrentPlayerVC;
+        YTPlusShowDownloadMgr(player, YTPlusPresenter(view, player), view);
+        return;   // suppress the Premium upsell fetch/popup
+    }
+    %orig;
+}
+%end
+
 // ─── Hide Player Action Buttons ───────────────────────────────────────────────
 
 static BOOL findCell(ASNodeController *nodeController, NSArray *identifiers) {
