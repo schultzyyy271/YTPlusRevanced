@@ -1283,6 +1283,17 @@ static void autoSkipShorts(YTPlayerViewController *self, YTSingleVideoController
     }
     %orig;
 }
+// The Premium popup itself is sent here (free/gated video -> showUpsellWithOfflineabilityRenderer:
+// -> showUpsell:). This is the guaranteed convergence point for the case the user sees, so
+// intercept it and open the download manager instead of the upsell. videoID is arg 2.
+- (void)showUpsell:(id)upsell videoID:(NSString *)videoID firstResponder:(id)responder {
+    if (ytpBool(@"downloadManager") && !ytpBool(@"noPlayerDownloadButton")) {
+        YTPlayerViewController *player = YTPlusCurrentPlayerVC;
+        YTPlusShowDownloadMgr(player, YTPlusPresenter(nil, player), nil);
+        return;   // suppress the Premium upsell
+    }
+    %orig;
+}
 %end
 
 // ─── Hide Player Action Buttons ───────────────────────────────────────────────
