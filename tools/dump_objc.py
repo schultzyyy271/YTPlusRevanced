@@ -238,10 +238,58 @@ def _make_tools():
             json.dump(obj, fh, indent=1, sort_keys=True)
         print("[dump_objc] wrote %s/{selectors.txt, objc_dump.json}  (%d classes)" % (outdir, len(obj)))
 
+    def _ea(cls_or_addr, sel):
+        # resolve a method address from (class, selector) or a raw address
+        if sel is not None:
+            return (state["classes"].get(cls_or_addr) or {}).get("sels", {}).get(sel)
+        if isinstance(cls_or_addr, str):
+            return int(cls_or_addr, 16)
+        return int(cls_or_addr)
+
+    def decompile(cls_or_addr, sel=None):
+        # T.decompile("YTGetDownloadActionCommandHandler", "executeWithCommand:entry:fromView:sender:")
+        # or T.decompile(0x100db4918). Returns Hex-Rays pseudocode as a string.
+        _need()
+        ea = _ea(cls_or_addr, sel)
+        if ea is None:
+            return "(no such method: -[%s %s])" % (cls_or_addr, sel)
+        try:
+            import ida_hexrays
+            return str(ida_hexrays.decompile(ea))
+        except Exception as e:
+            return "(decompile failed @ 0x%x: %s)" % (ea, e)
+
+    def disasm(cls_or_addr, sel=None, n=160):
+        _need()
+        import idc
+        ea = _ea(cls_or_addr, sel)
+        if ea is None:
+            return "(no such method: -[%s %s])" % (cls_or_addr, sel)
+        out, cur = [], ea
+        for _ in range(n):
+            out.append("0x%x: %s" % (cur, idc.GetDisasm(cur)))
+            nxt = idc.next_head(cur)
+            if nxt <= cur:
+                break
+            cur = nxt
+        return "\n".join(out)
+
+    def dump_methods(pairs, out_path):
+        # pairs: [("Class","selector:"), ...] -> writes pseudocode of each to a file for offline use.
+        _need()
+        chunks = []
+        for c, s in pairs:
+            chunks.append("// ===== -[%s %s]  (0x%s) =====\n%s"
+                          % (c, s, format(_ea(c, s) or 0, "x"), decompile(c, s)))
+        open(out_path, "w", encoding="utf-8").write("\n\n".join(chunks))
+        print("[dump_objc] wrote %s (%d methods)" % (out_path, len(pairs)))
+        return out_path
+
     class _T:
         pass
     t = _T()
-    for fn in (build, exists, whichclass, methods, imp, ivars, find, audit, dump_all):
+    for fn in (build, exists, whichclass, methods, imp, ivars, find, audit, dump_all,
+               decompile, disasm, dump_methods):
         setattr(t, fn.__name__, fn)
     t.state = state
     return t
@@ -252,3 +300,6 @@ T.build()
 print("Ready. Try: T.whichclass('videoZoomFreeZoomEnabled'), T.exists('scrubToTime:'), "
       "T.methods('YTReelBottomActionBarView'), T.imp('YTColdConfig','videoZoomFreeZoomEnabled'), "
       "T.audit(r'C:\\path\\hooks.tsv'), T.dump_all(r'C:\\path\\out')")
+print("Decompile for offline/no-MCP use: "
+      "print(T.decompile('YTGetDownloadActionCommandHandler','executeWithCommand:entry:fromView:sender:')) ; "
+      "T.disasm('Class','sel:') ; T.dump_methods([('Class','sel:')], r'C:\\path\\decomp.txt')")

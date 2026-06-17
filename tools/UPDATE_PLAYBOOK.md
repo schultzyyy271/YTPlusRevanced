@@ -6,6 +6,35 @@ Tools live in `tools/`. The core idea: **the binary is the source of truth** —
 
 ---
 
+## ⭐ NO-MCP / free-plan (Sonnet) mode — READ THIS FIRST
+
+If the AI session has **no IDA MCP** (can't drive IDA itself), the workflow still works — **YOU run
+`dump_objc.py` inside IDA Pro** (File ▸ Script file…) and paste outputs back. The AI then works from
+plain files with `grep`/`read`. Nothing here needs the MCP; the MCP was only how a Pro session drove IDA.
+
+What the AI will ask you to run in IDA's Output window, and you paste back:
+```python
+# (script auto-builds T on load)
+T.exists("someSelector:")                       # is this method still in the binary?
+T.whichclass("someSelector:")                   # which class(es) implement it
+T.methods("SomeClass")                           # a class's methods   (add True for inherited)
+T.ivars("SomeClass")                             # ivars / properties
+print(T.decompile("SomeClass","someSel:"))       # << pseudocode — this is the key one for tracing flow
+print(T.disasm("SomeClass","someSel:"))          # asm fallback if Hex-Rays missing
+```
+And generate the offline reference files once per version, then hand the FILES to the AI:
+```python
+T.dump_all(r"C:\out\objc_<ver>")                 # objc_dump.json (class->super/methods/ivars) + selectors.txt
+T.audit(r"C:\path\hooks.tsv", r"C:\out\audit.txt")   # which of our hooks are dead
+T.dump_methods([("YTGetDownloadActionCommandHandler","executeWithCommand:entry:fromView:sender:")],
+               r"C:\out\decomp.txt")             # batch pseudocode dump for the methods in question
+```
+With `objc_dump.json` + `selectors.txt` + targeted `T.decompile()` pastes, Sonnet has everything a Pro
+session had — `grep selectors.txt` replaces `T.exists`, the JSON replaces `T.methods/whichclass/ivars`,
+and your pasted pseudocode replaces live `decompile`. The steps below are the same either way.
+
+---
+
 ## 0. Inputs
 - The **decrypted YouTube IPA/binary** for the new version, loaded in **IDA Pro** (with the IDA MCP
   server running so Claude can drive it via `py_eval` / `decompile`).
