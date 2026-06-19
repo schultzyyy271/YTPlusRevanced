@@ -98,6 +98,15 @@ Conditional/diagnostic hooks must be in a Logos **`%group`** registered via `%in
 main `%init`, leaving a dangling ref when the `#if` strips the body). Also a `#if`'d block must never
 be the FIRST `%hook` in a file (Logos emits its preamble there).
 
+## 5b. Hook-conflict re-check (run after adding/changing any hook)
+Single-dylib is fine, but if two tweaks hook the same method and one `return`s without `%orig`, it
+stomps the other. Run the **NOORIG re-check** in `README.md` ("Verified-clean status" section) — it
+flags any overlapping-method hook that never calls `%orig`. **Empty output = all overlaps chain
+cleanly** (the expected/verified state). If something shows up, make that hook call `%orig` (or, if it
+must short-circuit, confirm it's in a mutually-exclusive `%group`). Do NOT split dylibs to "fix" a
+conflict — hook composition is identical across dylibs; coordinating `%orig` is the actual fix. (See
+README "Architecture" section.)
+
 ## 6. Bump version metadata
 `Makefile` (`YOUTUBE_VERSION`), `control` (`Version:`), `README.md`, `.github/workflows/build.yml`.
 

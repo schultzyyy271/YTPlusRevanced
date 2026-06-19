@@ -77,3 +77,64 @@ method was the correct hook target.
 - Class methods (`+`) aren't in the index (only instance methods + categories); a `+constructor`
   showing as "not found" may still exist.
 - Re-generate `objc_dump.json`/`selectors.txt` for **each** YouTube version; diff them to see what changed.
+
+---
+
+## Architecture: one dylib, and why splitting won't fix conflicts
+
+All sub-tweaks compile **inline into one dylib** (`YouTubePlusRevanced.dylib`). This is deliberate and
+correct — uYouEnhanced (the largest YouTube tweak) does the same. Don't split it expecting fixes.
+
+**Why features break ≠ the dylib.** Every broken feature traces to a YouTube **version change**
+(a hooked class/method was renamed/removed/moved) or a **server-side change** (e.g. dislike counts,
+delivered by the InnerTube response, not the app). The fix is always: find what YouTube changed and
+re-point the hook (see UPDATE_PLAYBOOK.md). Packaging is never the cause — the hook audit shows the
+vast majority of hooks bind fine.
+
+**Why splitting into separate dylibs does NOT help — important:**
+- Method hooking composes at the **runtime IMP-swizzle level, not the dylib level.** When N hooks
+  target one method — whether in one dylib or ten — MobileSubstrate stacks them in load order, each
+  chaining to the previous via `%orig`. **The dylib boundary is invisible to hook composition.**
+- So a hook **conflict** (two hooks fighting over a method) happens *identically* in 1 dylib or N
+  dylibs. Splitting cannot fix or prevent it.
+- Splitting actually makes things **worse**: you lose the Makefile's deterministic link order. The
+  single dylib's link order *guarantees* dependencies like "YTVideoOverlay registers its button API
+  (`+registerTweak:`/`buttonImage:`) before YouPiP/YouQuality use it." Separate dylibs load in
+  OS-decided order → that dependency becomes fragile (overlay buttons may not appear).
+
+**What a real conflict looks like, and how to actually fix it:** two tweaks hook the same method and
+one `return`s without calling `%orig` (short-circuiting the other), or both fight over the return
+value. The fix is **code coordination** — make both call `%orig`, order them deliberately, or merge
+the logic. This is the same fix in one or many dylibs, and is *easier* in one dylib (all hooks in one
+place, order controllable). Find overlapping hooks with:
+```bash
+bash tools/extract_hooks.sh | awk -F'\t' '{k=$2"\t"$3} !s[k,$1]++{c[k]++; f[k]=f[k]" "$1} END{for(x in c) if(c[x]>1) print c[x]" files: -["x"]"f[x]}'
+```
+Most overlaps are **intentional chaining** (every tweak adding its own settings section, or overlay
+buttons stacking) — that's by design and works. Only investigate ones where two tweaks would *fight*
+over the same return value.
+
+### Verified-clean status (21.24.3)
+Audited all 23 cross-file overlapping `(class, method)` hooks: **every cross-tweak overlap calls
+`%orig` and passes through in its default path → they chain cleanly.** The only hook that never calls
+`%orig` is YouPiP's own `-[MLPIPController activatePiPController]`, hooked in two **mutually-exclusive
+`%group`s** (Legacy vs Modern, only one `%init`'d at runtime) — intentional, not a conflict. Chain
+order is deterministic via the `_FILES` order in the Makefile (YTVideoOverlay is listed before
+YouPiP/YouQuality on purpose). **No fixes were needed.**
+
+Re-run after adding/changing hooks — flags any overlapping hook that *never* calls `%orig` (the real
+short-circuit risk):
+```bash
+# build overlap list
+bash tools/extract_hooks.sh | awk -F'\t' '{k=$2"|"$3} !s[k,$1]++{c[k]++} END{for(x in c) if(c[x]>1)print x}' > /tmp/ov.txt
+# per-method %orig presence, then flag NOORIG overlaps
+find . -name '*.x' -o -name '*.xm' | while read f; do awk '
+function fl(){if(sl!="")printf "%s\t%s|%s\t%s\n",FILENAME,cls,sl,(o?"ORIG":"NOORIG");sl=""}
+/%new/{sk=1}/%hook[ \t]/{fl();l=$0;sub(/.*%hook[ \t]+/,"",l);sub(/[ \t<({].*/,"",l);cls=l;ih=1;next}
+/%end/{fl();ih=0;next} ih&&/^[ \t]*[-+][ \t]*\(/{fl();if(sk){sk=0;next}
+ s=$0;sub(/^[ \t]*[-+][ \t]*/,"",s);sub(/^\([^)]*\)[ \t]*/,"",s);sub(/\{.*/,"",s);sel="";r=s;
+ if(index(r,":")){while(match(r,/[A-Za-z_][A-Za-z0-9_]*[ \t]*:/)){k=substr(r,RSTART,RLENGTH);gsub(/[ \t:]/,"",k);sel=sel k ":";r=substr(r,RSTART+RLENGTH)}}else{if(match(r,/[A-Za-z_][A-Za-z0-9_]*/))sel=substr(r,RSTART,RLENGTH)}
+ sl=sel;o=($0~/%orig/);next} ih&&sl!=""&&/%orig/{o=1} END{fl()}' "$f"; done \
+ | awk -F'\t' 'NR==FNR{ov[$1]=1;next} $3=="NOORIG"&&($2 in ov){print $1"  "$2}' /tmp/ov.txt -
+# (empty output = all overlaps chain cleanly)
+```

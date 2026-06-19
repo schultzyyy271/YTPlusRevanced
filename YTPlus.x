@@ -267,9 +267,10 @@ static BOOL isMerchShelfDescription(NSString *desc) {
     if (ytpBool(@"noAds")) {
         // Keyword-based match covers renamed/new ad renderer types in 21.16.2+
         NSArray *adKeywords = @[@"brand_promo", @"product_carousel", @"product_engagement_panel",
-                                @"product_item", @"text_search_ad", @"text_image_button_layout",
-                                @"carousel_headered_layout", @"carousel_footered_layout",
-                                @"square_image_layout", @"landscape_image_wide_button_layout",
+                                @"product_item", @"text_search_ad",
+                                // NOTE: removed generic ELM layout names (text_image_button_layout,
+                                // carousel_*_layout, square_image_layout, landscape_image_wide_button_layout)
+                                // — they are NOT ad-specific and matched organic search results -> empty search.
                                 @"feed_ad_metadata", @"promoted_sparkles", @"promoted_video",
                                 @"promoted_text", @"promoted_app", @"compact_promoted",
                                 @"ad_placement", @"ad_slot", @"companion_ad",
@@ -298,9 +299,10 @@ static BOOL isMerchShelfDescription(NSString *desc) {
     if (ytpBool(@"noAds")) {
         NSMutableArray *contents = model.contentsArray;
         NSArray *adKeywords = @[@"brand_promo", @"product_carousel", @"product_engagement_panel",
-                                @"product_item", @"text_search_ad", @"text_image_button_layout",
-                                @"carousel_headered_layout", @"carousel_footered_layout",
-                                @"square_image_layout", @"landscape_image_wide_button_layout",
+                                @"product_item", @"text_search_ad",
+                                // NOTE: removed generic ELM layout names (text_image_button_layout,
+                                // carousel_*_layout, square_image_layout, landscape_image_wide_button_layout)
+                                // — they are NOT ad-specific and matched organic search results -> empty search.
                                 @"feed_ad_metadata", @"promoted_sparkles", @"promoted_video",
                                 @"promoted_text", @"promoted_app", @"compact_promoted",
                                 @"ad_placement", @"ad_slot", @"companion_ad",
